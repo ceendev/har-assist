@@ -29,17 +29,21 @@
         function refreshMode() {
             if (!editor) return;
             var mode = editor.getMode();
-            // Keep the original text (including whitespace and number spelling) in text/code mode.
-            if (mode != "tree") editor.setText(body.text);
+            // JSONEditor formats JSON in code mode; plain text keeps its original layout.
+            if (body.json && mode != "text") editor.set(body.value);
+            else editor.setText(body.text);
             if (editor.aceEditor) {
                 editor.aceEditor.getSession().setUseWorker(false);
+                editor.aceEditor.getSession().setFoldStyle("markbegin");
+                editor.aceEditor.setOptions({ showFoldWidgets: true, fadeFoldWidgets: false });
                 editor.aceEditor.resize();
             }
         }
         editor = new root.JSONEditor(container, {
-            mode: body.json ? "tree" : "text",
-            modes: body.json ? ["tree", "code", "text"] : ["text"],
-            navigationBar: body.json,
+            mode: body.json ? "code" : "text",
+            mainMenuBar: false,
+            navigationBar: false,
+            indentation: 2,
             statusBar: true,
             history: false,
             enableSort: false,
@@ -48,8 +52,7 @@
             onModeChange: refreshMode
         });
         try {
-            if (body.json) editor.set(body.value);
-            else editor.setText(body.text);
+            refreshMode();
         } catch (error) {
             editor.destroy();
             throw error;

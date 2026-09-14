@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { entry, createHost, openDOM } = require('./helpers/body-webview');
 
-test('real JSONEditor opens on double click, folds nodes and follows the selected request', async t => {
+test('JSONEditor opens formatted code without a title bar, folds code and follows selection', async t => {
 	const host = createHost();
 	const entries = [entry(), entry('{"otherRequest":3}', '{"otherResponse":4}')];
 	const ui = await openDOM(t, host.main, entries);
@@ -12,15 +12,21 @@ test('real JSONEditor opens on double click, folds nodes and follows the selecte
 	for (const source of ['request', 'response']) {
 		const viewer = ui.query('[data-json-source="' + source + '"]');
 		assert.equal(viewer.hidden, false);
-		assert.ok(viewer.querySelector('.jsoneditor-mode-tree'));
+		assert.ok(viewer.querySelector('.jsoneditor-mode-code'));
+		assert.equal(viewer.querySelector('.jsoneditor-menu'), null);
+		assert.equal(viewer.querySelector('.jsoneditor-navigation-bar'), null);
 		const fallback = viewer.parentElement.querySelector('.code-block');
 		assert.equal(ui.window.getComputedStyle(fallback).display, 'none', source + ' must not also show the old text box');
-		const fields = viewer.querySelectorAll('.jsoneditor-field').length;
-		viewer.querySelector('.jsoneditor-collapse-all').click();
-		assert.ok(viewer.querySelectorAll('.jsoneditor-field').length < fields);
-		viewer.querySelector('.jsoneditor-expand-all').click();
-		assert.ok(viewer.querySelectorAll('.jsoneditor-field').length >= fields);
-		assert.ok(viewer.querySelector('.jsoneditor-number'), 'values have syntax-highlighting classes');
+		const editor = ui.window.jsonEditors[source];
+		assert.equal(editor.aceEditor.getReadOnly(), true);
+		const session = editor.aceEditor.getSession();
+		assert.ok(session.getLength() > 1, 'JSON must be auto-formatted on opening');
+		assert.equal(session.getFoldWidget(0), 'start');
+		session.foldAll();
+		assert.ok(session.getAllFolds().length > 0);
+		session.unfold();
+		assert.equal(session.getAllFolds().length, 0);
+		assert.ok(session.getTokens(2).some(token => token.type.includes('numeric')), 'JSON has syntax highlighting');
 	}
 	ui.click('.request-items [index="1"]');
 	assert.deepEqual(JSON.parse(ui.window.jsonEditors.request.getText()), { otherRequest: 3 });
@@ -39,12 +45,14 @@ test('JSON/text MIME variants, invalid JSON, and long bodies use the appropriate
 		ui.click('.request-items [index="0"]', true);
 		for (const source of ['request', 'response']) {
 			const editor = ui.window.jsonEditors[source];
-			assert.equal(editor.getMode(), 'tree', mime);
+			assert.equal(editor.getMode(), 'code', mime);
+			assert.equal(editor.getText(), JSON.stringify(JSON.parse(long), null, 2));
 			assert.equal(editor.get().tail.endsWith('END'), true);
 			editor.setMode('text');
 			assert.equal(editor.textarea.readOnly, true);
 			assert.equal(editor.getText(), long);
-			editor.setMode('tree');
+			editor.setMode('code');
+			assert.equal(editor.getText(), JSON.stringify(JSON.parse(long), null, 2));
 			assert.equal(editor.options.onEditable({}), false);
 		}
 		assert.equal(ui.window.reqs[0].obj.response.content.text, long);
@@ -69,15 +77,20 @@ test('each new body tab loads the same real JSONEditor, including JSON recorded 
 	for (const source of ['request', 'response']) {
 		const viewer = ui.query('[data-json-source="' + source + '"]');
 		viewer.dispatchEvent(new ui.window.MouseEvent('dblclick', { bubbles: true }));
-		assert.equal(ui.messages.length, source === 'request' ? 0 : 1, 'tree interaction must not accidentally open another tab');
+		assert.equal(ui.messages.length, source === 'request' ? 0 : 1, 'code interaction must not accidentally open another tab');
 		ui.click('.subscript[data-open-source="' + source + '"]', true);
 		await Promise.all(ui.pending);
 		const tab = await openDOM(t, host.panels.at(-1));
-		assert.ok(tab.query('#body-editor > .jsoneditor-mode-tree'));
-		tab.click('.jsoneditor-collapse-all');
-		tab.click('.jsoneditor-expand-all');
+		assert.ok(tab.query('#body-editor > .jsoneditor-mode-code'));
+		assert.equal(tab.query('#body-editor .jsoneditor-menu'), null);
+		const editor = tab.query('.ace_editor').env.editor;
+		assert.equal(editor.getReadOnly(), true);
+		assert.equal(editor.getValue(), JSON.stringify(JSON.parse(source === 'request' ? request : response), null, 2));
+		editor.getSession().foldAll();
+		assert.ok(editor.getSession().getAllFolds().length > 0);
+		editor.getSession().unfold();
 		assert.equal(tab.window.injected, undefined, 'body strings must not execute as HTML');
-		assert.ok(tab.query('#body-editor').textContent.includes(source));
+		assert.ok(editor.getValue().includes(source));
 	}
 });
 
