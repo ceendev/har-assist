@@ -198,7 +198,8 @@
                     </div>
                     <div class="page" name="请求体">
                         <div class="inspector-section" require-data="obj.request.postData.text">
-                            <div class="json-body-viewer" data-json-source="request" hidden></div>
+                            <div class="subscript open-new-tab" data-open-source="request">双击在新标签页打开</div>
+                            <div class="json-body-viewer open-new-tab" data-json-source="request" data-open-source="request" hidden></div>
                             <div class="code-block request-body-text" data="requestBody"></div>
                         </div>
                     </div>
@@ -239,9 +240,9 @@
                     </div>
                     <div class="page" name="响应体">
                         <div class="inspector-section" require-data="content">
-                            <div class="json-body-viewer" data-json-source="response" hidden></div>
+                            <div class="subscript open-new-tab" data-open-source="response" require-value="mimeType=text/*|application/*">双击在新标签页打开</div>
+                            <div class="json-body-viewer open-new-tab" data-json-source="response" data-open-source="response" hidden></div>
                             <div class="code-block shorten" require-value="mimeType=text/*|application/*"></div>
-                            <div class="subscript open-new-tab" require-value="mimeType=text/*|application/*">双击在新标签页打开</div>
                             <img class="img-preview" data-to="src=content" require-value="mimeType=image/*" />
                         </div>
                     </div>

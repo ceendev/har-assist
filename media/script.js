@@ -1085,10 +1085,13 @@ function selectReq(index) {
     });
 
     $(".open-new-tab").off().on("dblclick", function () {
+        var source = $(this).attr("data-open-source") || "response";
+        var text = source == "request" ? selectedReq.requestBodyRaw : selectedReq.responseBodyRaw;
+        var mime = source == "request" ? selectedReq.requestBodyMime : selectedReq.mimeType;
         vscode.postMessage({
             action: "openNewTab",
-            text: selectedReq.content,
-            lang: selectedReq.mimeType.split("\/")[1]
+            text: text || "",
+            lang: String(mime || "text/plain").split(";", 1)[0].split("/", 2)[1] || "text"
         });
     });
 
