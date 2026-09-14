@@ -2,7 +2,7 @@
   "name": "har-assist",
   "displayName": "Har Assist",
   "description": "A visual HAR assistant for VS Code with automatic file opening, fast request filtering, resizable tables, and split request/response inspection.",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "publisher": "yeceen",
   "homepage": "https://github.com/ceendev/har-assist",
   "license": "GPL-3",

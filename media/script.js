@@ -1091,7 +1091,8 @@ function selectReq(index) {
         vscode.postMessage({
             action: "openNewTab",
             text: text || "",
-            lang: String(mime || "text/plain").split(";", 1)[0].split("/", 2)[1] || "text"
+            lang: String(mime || "text/plain").split(";", 1)[0].split("/", 2)[1] || "text",
+            json: isJSONMimeType(mime)
         });
     });
 

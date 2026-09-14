@@ -97,8 +97,12 @@ function renderHarEditor(panel, document, context) {
 
 	panel.webview.onDidReceiveMessage(async message => {
 		if (message.action === 'openNewTab') {
-			const document = await vscode.workspace.openTextDocument({ content: message.text });
-			await vscode.window.showTextDocument(document);
+			if (message.json || String(message.lang || '').startsWith('json')) {
+				openBodyEditor(context, message.text, true);
+			} else {
+				const document = await vscode.workspace.openTextDocument({ content: message.text, language: message.lang || 'plaintext' });
+				await vscode.window.showTextDocument(document);
+			}
 			return;
 		}
 
@@ -117,6 +121,14 @@ function renderHarEditor(panel, document, context) {
 			});
 		}
 	}, undefined, context.subscriptions);
+}
+
+function openBodyEditor(context, text, isJson) {
+	const panel = vscode.window.createWebviewPanel('har-assist.body', 'HAR JSON', vscode.ViewColumn.Beside, { enableScripts: true });
+	const css = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'node_modules', 'jsoneditor', 'dist', 'jsoneditor.min.css'));
+	const script = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'node_modules', 'jsoneditor', 'dist', 'jsoneditor.min.js'));
+	const payload = JSON.stringify(String(text || '')).replace(/</g, '\\u003c');
+	panel.webview.html = `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="${css}"><style>html,body,#editor{height:100%;margin:0;overflow:hidden}</style></head><body><div id="editor"></div><script src="${script}"></script><script>const editor = new JSONEditor(document.getElementById('editor'), {mode: ${isJson ? "'tree'" : "'text'"}, modes: ${isJson ? "['tree','code','text']" : "['text']"}, onEditable: () => false}); const raw = ${payload}; try { editor.set(${isJson ? "JSON.parse(raw)" : "null"}); } catch (_) { editor.setText(raw); }</script></body></html>`;
 }
 
 module.exports = {
