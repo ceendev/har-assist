@@ -193,25 +193,27 @@ body {
 }
 
 .json-body-viewer {
-    padding: 8px 10px;
-    overflow: auto;
-    font-family: var(--vscode-editor-font-family, monospace);
-    white-space: nowrap;
+    height: 320px;
+    min-height: 200px;
+    max-height: 60vh;
 }
 
-.json-body-viewer details {
-    margin-left: 8px;
+.body-section > [hidden] {
+    display: none !important;
 }
 
-.json-body-viewer summary {
+.body-section > .open-new-tab {
+    padding: 0 0 6px;
     cursor: pointer;
-    color: var(--vscode-symbolIcon-objectForeground, var(--vscode-editor-foreground));
 }
 
-.json-leaf {
-    display: block;
-    margin-left: 22px;
-    color: var(--vscode-editor-foreground);
+.body-viewer-error {
+    margin-bottom: 8px;
+    color: var(--vscode-errorForeground);
+}
+
+.body-section > .code-block {
+    white-space: pre-wrap;
 }
 
 .inspector-copy {

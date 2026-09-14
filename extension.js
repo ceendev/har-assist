@@ -70,6 +70,8 @@ function renderHarEditor(panel, document, context) {
 	const scriptPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'script.js');
 	const jsonEditorCssPath = vscode.Uri.joinPath(context.extensionUri, 'node_modules', 'jsoneditor', 'dist', 'jsoneditor.min.css');
 	const jsonEditorScriptPath = vscode.Uri.joinPath(context.extensionUri, 'node_modules', 'jsoneditor', 'dist', 'jsoneditor.min.js');
+	const bodyViewerPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'body-viewer.js');
+	const bodyViewerCssPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'body-viewer.css');
 	const harUri = panel.webview.asWebviewUri(document.sourceUri);
 	const resourceRoots = [context.extensionUri, vscode.Uri.joinPath(document.sourceUri, '..')];
 
@@ -82,27 +84,24 @@ function renderHarEditor(panel, document, context) {
 		<head>
 			<meta charset="UTF-8">
 			<meta name="viewport" content="width=device-width, initial-scale=1.0">
-			<link rel="stylesheet" href="${panel.webview.asWebviewUri(cssPath)}">
 			<link rel="stylesheet" href="${panel.webview.asWebviewUri(jsonEditorCssPath)}">
+			<link rel="stylesheet" href="${panel.webview.asWebviewUri(bodyViewerCssPath)}">
+			<link rel="stylesheet" href="${panel.webview.asWebviewUri(cssPath)}">
 			<link href="${panel.webview.asWebviewUri(codiconsPath)}" rel="stylesheet" />
 		</head>
 		<body>
 			<script>window.harSource = ${JSON.stringify(harUri.toString())};</script>
 			<script src="${panel.webview.asWebviewUri(jqueryPath)}"></script>
 			<script src="${panel.webview.asWebviewUri(jsonEditorScriptPath)}"></script>
+			<script src="${panel.webview.asWebviewUri(bodyViewerPath)}"></script>
 			<script src="${panel.webview.asWebviewUri(scriptPath)}"></script>
 			${context.markup}
 		</body>
 		</html>`;
 
 	panel.webview.onDidReceiveMessage(async message => {
-		if (message.action === 'openNewTab') {
-			if (message.json || String(message.lang || '').startsWith('json')) {
-				openBodyEditor(context, message.text, true);
-			} else {
-				const document = await vscode.workspace.openTextDocument({ content: message.text, language: message.lang || 'plaintext' });
-				await vscode.window.showTextDocument(document);
-			}
+		if (message.action === 'openNewTab' && typeof message.text === 'string') {
+			openBodyEditor(context, message.text, message.mimeType || (message.json ? 'application/json' : 'text/plain'), message.source);
 			return;
 		}
 
@@ -123,12 +122,25 @@ function renderHarEditor(panel, document, context) {
 	}, undefined, context.subscriptions);
 }
 
-function openBodyEditor(context, text, isJson) {
-	const panel = vscode.window.createWebviewPanel('har-assist.body', 'HAR JSON', vscode.ViewColumn.Beside, { enableScripts: true });
+function openBodyEditor(context, text, mimeType, source) {
+	const panel = vscode.window.createWebviewPanel('har-assist.body', source === 'request' ? 'HAR 请求体' : 'HAR 响应体', vscode.ViewColumn.Beside, {
+		enableScripts: true,
+		retainContextWhenHidden: true,
+		localResourceRoots: [context.extensionUri]
+	});
 	const css = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'node_modules', 'jsoneditor', 'dist', 'jsoneditor.min.css'));
 	const script = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'node_modules', 'jsoneditor', 'dist', 'jsoneditor.min.js'));
-	const payload = JSON.stringify(String(text || '')).replace(/</g, '\\u003c');
-	panel.webview.html = `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="${css}"><style>html,body,#editor{height:100%;margin:0;overflow:hidden}</style></head><body><div id="editor"></div><script src="${script}"></script><script>const editor = new JSONEditor(document.getElementById('editor'), {mode: ${isJson ? "'tree'" : "'text'"}, modes: ${isJson ? "['tree','code','text']" : "['text']"}, onEditable: () => false}); const raw = ${payload}; try { editor.set(${isJson ? "JSON.parse(raw)" : "null"}); } catch (_) { editor.setText(raw); }</script></body></html>`;
+	const viewerScript = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'body-viewer.js'));
+	const viewerCss = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'body-viewer.css'));
+	const panelScript = panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'body-panel.js'));
+	const payload = JSON.stringify({ text, mimeType }).replace(/</g, '\\u003c');
+	panel.webview.html = `<!doctype html><html class="body-tab" lang="zh-CN"><head><meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<link rel="stylesheet" href="${css}"><link rel="stylesheet" href="${viewerCss}"></head>
+		<body><div id="body-editor" class="body-viewer"></div>
+		<script id="body-payload" type="application/json">${payload}</script>
+		<script src="${script}"></script><script src="${viewerScript}"></script><script src="${panelScript}"></script>
+		</body></html>`;
 }
 
 module.exports = {

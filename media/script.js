@@ -432,6 +432,7 @@ function handleRequestNavigation(event) {
 }
 
 function closeInspector() {
+    destroyBodyEditors();
     selectedReq = null;
     selectedIndex = -1;
     inspectorPanelState = { requestExpanded: true, responseExpanded: true };
@@ -1001,7 +1002,6 @@ function selectReq(index) {
         urlScroller.scrollLeft = 0;
     }
     renderRawViews();
-    renderJSONBodyViews();
     $("*[data][round]").each(function () {
         $(this).text(round(getNested($(this).attr("data")), $(this).attr("round")));
     });
@@ -1084,6 +1084,8 @@ function selectReq(index) {
         $(this).html(selectedReq.contentShort.toString().toHtmlEntities());
     });
 
+    // Run after the generic field visibility updates so they cannot reveal the old text view.
+    renderJSONBodyViews();
     $(".open-new-tab").off().on("dblclick", function () {
         var source = $(this).attr("data-open-source") || "response";
         var text = source == "request" ? selectedReq.requestBodyRaw : selectedReq.responseBodyRaw;
@@ -1091,8 +1093,8 @@ function selectReq(index) {
         vscode.postMessage({
             action: "openNewTab",
             text: text || "",
-            lang: String(mime || "text/plain").split(";", 1)[0].split("/", 2)[1] || "text",
-            json: isJSONMimeType(mime)
+            mimeType: mime || "",
+            source: source
         });
     });
 
@@ -1199,73 +1201,44 @@ function format(text, mimeType) {
     }
 }
 
-function isJSONMimeType(mimeType) {
-    var normalized = String(mimeType || "").toLowerCase().split(";", 1)[0].trim();
-    return normalized == "application/json" || normalized.endsWith("+json");
-}
-
-function renderJSONNode(value, label) {
-    var isObject = value !== null && typeof value == "object";
-    var row = document.createElement("div");
-    row.className = "json-node";
-    if (!isObject) {
-        var leaf = document.createElement("span");
-        leaf.className = "json-leaf";
-        leaf.textContent = (label != null ? label + ": " : "") + (value === null ? "null" : String(value));
-        row.appendChild(leaf);
-        return row;
-    }
-    var details = document.createElement("details");
-    details.open = true;
-    var summary = document.createElement("summary");
-    summary.textContent = (label != null ? label + ": " : "") + (Array.isArray(value) ? "[ ]" : "{ }");
-    details.appendChild(summary);
-    Object.keys(value).forEach(function (key) {
-        details.appendChild(renderJSONNode(value[key], key));
-    });
-    row.appendChild(details);
-    return row;
-}
-
 var jsonEditors = { request: null, response: null };
 
+function destroyBodyEditors() {
+    Object.keys(jsonEditors).forEach(function (source) {
+        if (jsonEditors[source]) jsonEditors[source].destroy();
+        jsonEditors[source] = null;
+    });
+}
+
 function renderJSONBodyViews() {
+    destroyBodyEditors();
     $(".json-body-viewer").each(function () {
         var viewer = this;
         var source = viewer.getAttribute("data-json-source");
         var raw = source == "request" ? selectedReq && selectedReq.requestBodyRaw : selectedReq && selectedReq.responseBodyRaw;
         var mime = source == "request" ? selectedReq && selectedReq.requestBodyMime : selectedReq && selectedReq.mimeType;
-        if (jsonEditors[source]) {
-            jsonEditors[source].destroy();
-            jsonEditors[source] = null;
-        }
         viewer.innerHTML = "";
         viewer.hidden = true;
         var textBlock = source == "request" ? document.querySelector(".request-body-text") : document.querySelector(".response-panel .code-block.shorten");
-        var isText = String(mime || "").toLowerCase().split(";", 1)[0].trim().startsWith("text/");
-        var isJson = isJSONMimeType(mime);
-        if (selectedReq && raw && (isJson || isText) && typeof JSONEditor == "function") {
-            var options = {
-                mode: isJson ? "tree" : "text",
-                modes: isJson ? ["tree", "code", "text"] : ["text"],
-                navigationBar: true,
-                statusBar: true,
-                onEditable: function () { return false; }
-            };
+        var notice = viewer.parentElement.querySelector(".body-viewer-error");
+        var openAction = viewer.parentElement.querySelector(".open-new-tab");
+        var body = window.HarBodyViewer.describe(raw, mime);
+        notice.hidden = true;
+        openAction.hidden = !body.textual || !body.text.length;
+        if (selectedReq && body.text.length && body.textual) {
+            viewer.hidden = false;
             try {
-                jsonEditors[source] = new JSONEditor(viewer, options);
-                if (isJson) {
-                    jsonEditors[source].set(JSON.parse(raw));
-                } else {
-                    jsonEditors[source].setText(raw);
-                }
-                viewer.hidden = false;
-                if (textBlock) textBlock.hidden = true;
+                jsonEditors[source] = window.HarBodyViewer.mount(viewer, raw, mime);
             } catch (error) {
-                if (jsonEditors[source]) { jsonEditors[source].destroy(); jsonEditors[source] = null; }
+                viewer.textContent = "";
+                viewer.hidden = true;
+                notice.hidden = false;
             }
         }
-        if (textBlock && viewer.hidden) textBlock.hidden = false;
+        if (textBlock) {
+            textBlock.hidden = !viewer.hidden || !body.textual;
+            if (!textBlock.hidden) textBlock.textContent = body.text;
+        }
     });
 }
 
@@ -1332,7 +1305,9 @@ function addRequestItem(reqItem) {
         content = responseBody;
         if (mimeType != "text/plain") {
             if (mimeType.includes("image/")) {
-                content = "data:" + mimeType.split("/")[1] + ";base64," + reqItem.response.content.text;
+                content = reqItem.response.content.encoding == "base64"
+                    ? "data:" + mimeType + ";base64," + reqItem.response.content.text
+                    : "data:" + mimeType + "," + encodeURIComponent(reqItem.response.content.text);
             } else {
                 formatted = true;
             }
@@ -1365,7 +1340,7 @@ function addRequestItem(reqItem) {
         "contentGroup": getContentGroup(mimeType),
         "statusGroup": getStatusGroup(reqItem.response.status),
         "rawRequest": formatRawRequest(reqItem),
-        "rawResponse": formatRawResponse(reqItem, content),
+        "rawResponse": formatRawResponse(reqItem, responseBody),
         "obj": reqItem
     };
     item.searchValues = createSearchValues(reqItem, item, responseBody);

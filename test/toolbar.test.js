@@ -56,6 +56,7 @@ async function createToolbar(t, entries) {
 	window.harSource = 'https://har.test/fixture.har';
 	window.fetch = async () => ({ ok: true, text: async () => JSON.stringify({ log: { entries } }) });
 	window.eval(jquery);
+	window.eval(fs.readFileSync(path.join(root, 'media/body-viewer.js'), 'utf8'));
 	window.eval(script);
 	const loaded = new Promise((resolve, reject) => {
 		const load = window.loadHAR;
