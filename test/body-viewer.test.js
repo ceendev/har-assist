@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { entry, createHost, openDOM } = require('./helpers/body-webview');
 
-test('JSONEditor opens formatted code without a title bar, folds code and follows selection', async t => {
+test('JSONEditor opens formatted code without menu or status bars, folds code and follows selection', async t => {
 	const host = createHost();
 	const entries = [entry(), entry('{"otherRequest":3}', '{"otherResponse":4}')];
 	const ui = await openDOM(t, host.main, entries);
@@ -15,6 +15,10 @@ test('JSONEditor opens formatted code without a title bar, folds code and follow
 		assert.ok(viewer.querySelector('.jsoneditor-mode-code'));
 		assert.equal(viewer.querySelector('.jsoneditor-menu'), null);
 		assert.equal(viewer.querySelector('.jsoneditor-navigation-bar'), null);
+		assert.equal(viewer.querySelector('.jsoneditor-statusbar'), null);
+		assert.ok(viewer.closest('.page').classList.contains('text-body'));
+		assert.equal(ui.window.getComputedStyle(viewer.parentElement).display, 'flex');
+		assert.equal(ui.window.getComputedStyle(viewer.closest('.page')).overflow, 'hidden');
 		const fallback = viewer.parentElement.querySelector('.code-block');
 		assert.equal(ui.window.getComputedStyle(fallback).display, 'none', source + ' must not also show the old text box');
 		const editor = ui.window.jsonEditors[source];
@@ -83,6 +87,7 @@ test('each new body tab loads the same real JSONEditor, including JSON recorded 
 		const tab = await openDOM(t, host.panels.at(-1));
 		assert.ok(tab.query('#body-editor > .jsoneditor-mode-code'));
 		assert.equal(tab.query('#body-editor .jsoneditor-menu'), null);
+		assert.equal(tab.query('#body-editor .jsoneditor-statusbar'), null);
 		const editor = tab.query('.ace_editor').env.editor;
 		assert.equal(editor.getReadOnly(), true);
 		assert.equal(editor.getValue(), JSON.stringify(JSON.parse(source === 'request' ? request : response), null, 2));
@@ -103,6 +108,38 @@ test('plain text and invalid JSON also open safely in a read-only JSONEditor tex
 		assert.ok(area);
 		assert.equal(area.value, text);
 		assert.equal(area.readOnly, true);
+		assert.equal(tab.query('#body-editor .jsoneditor-statusbar'), null);
+	}
+});
+
+test('fitted body layout survives empty bodies and keeps the open-tab action outside scrolling content', async t => {
+	const ui = await openDOM(t, createHost().main, [entry('', ''), entry(), entry('plain\n'.repeat(300), 'plain\n'.repeat(300), 'text/plain')]);
+	ui.click('.request-items [index="0"]', true);
+	for (const index of [1, 2]) {
+		ui.click('.request-items [index="' + index + '"]');
+		for (const source of ['request', 'response']) {
+			const viewer = ui.query('[data-json-source="' + source + '"]');
+			const section = viewer.parentElement;
+			const action = section.querySelector('.open-new-tab');
+			assert.equal(ui.window.getComputedStyle(section).display, 'flex');
+			assert.equal(ui.window.getComputedStyle(viewer).minHeight, '0');
+			assert.equal(ui.window.getComputedStyle(viewer).height, 'auto');
+			assert.equal(ui.window.getComputedStyle(action).flexShrink, '0');
+			assert.equal(action.hidden, false);
+			assert.equal(viewer.contains(action), false);
+			assert.equal(viewer.querySelector('.jsoneditor-statusbar'), null);
+		}
+	}
+	// Even if the library fails, scroll only the fallback text, not the action.
+	ui.window.JSONEditor = undefined;
+	ui.click('.request-items [index="1"]');
+	for (const source of ['request', 'response']) {
+		const viewer = ui.query('[data-json-source="' + source + '"]');
+		const section = viewer.parentElement;
+		assert.equal(viewer.hidden, true);
+		assert.equal(section.querySelector('.body-viewer-error').hidden, false);
+		assert.equal(ui.window.getComputedStyle(section.querySelector('.code-block')).overflow, 'auto');
+		assert.equal(section.querySelector('.open-new-tab').hidden, false);
 	}
 });
 
@@ -119,6 +156,7 @@ test('switching to image, media or binary never creates JSONEditor or exposes a 
 		for (const source of ['request', 'response']) {
 			assert.equal(ui.window.jsonEditors[source], null, mime);
 			assert.equal(ui.query('[data-json-source="' + source + '"]').hidden, true);
+			assert.equal(ui.query('[data-json-source="' + source + '"]').closest('.page').classList.contains('text-body'), false);
 			assert.equal(ui.query('.subscript[data-open-source="' + source + '"]').hidden, true);
 		}
 		if (mime.startsWith('image/')) {

@@ -44,7 +44,7 @@
             mainMenuBar: false,
             navigationBar: false,
             indentation: 2,
-            statusBar: true,
+            statusBar: false,
             history: false,
             enableSort: false,
             enableTransform: false,

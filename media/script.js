@@ -1223,6 +1223,11 @@ function renderJSONBodyViews() {
         var notice = viewer.parentElement.querySelector(".body-viewer-error");
         var openAction = viewer.parentElement.querySelector(".open-new-tab");
         var body = window.HarBodyViewer.describe(raw, mime);
+        var hasTextBody = body.textual && body.text.length > 0;
+        viewer.closest(".page").classList.toggle("text-body", hasTextBody);
+        // Clear jQuery's cached display value when returning from an empty body,
+        // so the fitted flex layout can fill the panel again.
+        if (hasTextBody) viewer.parentElement.style.display = "";
         notice.hidden = true;
         openAction.hidden = !body.textual || !body.text.length;
         if (selectedReq && body.text.length && body.textual) {
