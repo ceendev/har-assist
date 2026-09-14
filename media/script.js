@@ -1226,21 +1226,43 @@ function renderJSONNode(value, label) {
     return row;
 }
 
+var jsonEditors = { request: null, response: null };
+
 function renderJSONBodyViews() {
     $(".json-body-viewer").each(function () {
         var viewer = this;
         var source = viewer.getAttribute("data-json-source");
         var raw = source == "request" ? selectedReq && selectedReq.requestBodyRaw : selectedReq && selectedReq.responseBodyRaw;
         var mime = source == "request" ? selectedReq && selectedReq.requestBodyMime : selectedReq && selectedReq.mimeType;
+        if (jsonEditors[source]) {
+            jsonEditors[source].destroy();
+            jsonEditors[source] = null;
+        }
         viewer.innerHTML = "";
         viewer.hidden = true;
         var textBlock = source == "request" ? document.querySelector(".request-body-text") : document.querySelector(".response-panel .code-block.shorten");
-        if (selectedReq && isJSONMimeType(mime) && raw) {
+        var isText = String(mime || "").toLowerCase().split(";", 1)[0].trim().startsWith("text/");
+        var isJson = isJSONMimeType(mime);
+        if (selectedReq && raw && (isJson || isText) && typeof JSONEditor == "function") {
+            var options = {
+                mode: isJson ? "tree" : "text",
+                modes: isJson ? ["tree", "code", "text"] : ["text"],
+                navigationBar: true,
+                statusBar: true,
+                onEditable: function () { return false; }
+            };
             try {
-                viewer.appendChild(renderJSONNode(JSON.parse(raw), null));
+                jsonEditors[source] = new JSONEditor(viewer, options);
+                if (isJson) {
+                    jsonEditors[source].set(JSON.parse(raw));
+                } else {
+                    jsonEditors[source].setText(raw);
+                }
                 viewer.hidden = false;
                 if (textBlock) textBlock.hidden = true;
-            } catch (error) { /* malformed JSON remains in the text view */ }
+            } catch (error) {
+                if (jsonEditors[source]) { jsonEditors[source].destroy(); jsonEditors[source] = null; }
+            }
         }
         if (textBlock && viewer.hidden) textBlock.hidden = false;
     });

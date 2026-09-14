@@ -68,6 +68,8 @@ function renderHarEditor(panel, document, context) {
 	const codiconsPath = vscode.Uri.joinPath(context.extensionUri, 'node_modules', '@vscode', 'codicons', 'dist', 'codicon.css');
 	const jqueryPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'jquery.min.js');
 	const scriptPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'script.js');
+	const jsonEditorCssPath = vscode.Uri.joinPath(context.extensionUri, 'node_modules', 'jsoneditor', 'dist', 'jsoneditor.min.css');
+	const jsonEditorScriptPath = vscode.Uri.joinPath(context.extensionUri, 'node_modules', 'jsoneditor', 'dist', 'jsoneditor.min.js');
 	const harUri = panel.webview.asWebviewUri(document.sourceUri);
 	const resourceRoots = [context.extensionUri, vscode.Uri.joinPath(document.sourceUri, '..')];
 
@@ -81,11 +83,13 @@ function renderHarEditor(panel, document, context) {
 			<meta charset="UTF-8">
 			<meta name="viewport" content="width=device-width, initial-scale=1.0">
 			<link rel="stylesheet" href="${panel.webview.asWebviewUri(cssPath)}">
+			<link rel="stylesheet" href="${panel.webview.asWebviewUri(jsonEditorCssPath)}">
 			<link href="${panel.webview.asWebviewUri(codiconsPath)}" rel="stylesheet" />
 		</head>
 		<body>
 			<script>window.harSource = ${JSON.stringify(harUri.toString())};</script>
 			<script src="${panel.webview.asWebviewUri(jqueryPath)}"></script>
+			<script src="${panel.webview.asWebviewUri(jsonEditorScriptPath)}"></script>
 			<script src="${panel.webview.asWebviewUri(scriptPath)}"></script>
 			${context.markup}
 		</body>

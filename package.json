@@ -79,6 +79,7 @@
     "typescript": "^4.6.4"
   },
   "dependencies": {
-    "@vscode/codicons": "^0.0.32"
+    "@vscode/codicons": "^0.0.32",
+    "jsoneditor": "^10.4.3"
   }
 }
