@@ -941,7 +941,12 @@ function setupGUI() {
 
     $(".request-items .request-item").off()
         .on("click", function () {
-            selectedIndex = Number($(this).attr("index"));
+            var index = Number($(this).attr("index"));
+            if ($(".main-layout").hasClass("has-inspector")) {
+                selectReq(index);
+                return;
+            }
+            selectedIndex = index;
             $(".request-item.selected").removeClass("selected");
             $(this).addClass("selected");
         })
