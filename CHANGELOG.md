@@ -2,6 +2,15 @@
 
 All notable changes to Har Assist are documented here.
 
+## 0.1.15
+
+- Package only the required browser bundles, UI assets and third-party notices,
+  excluding duplicate Ace builds, examples, source maps and development files.
+- Keep JSON code highlighting, formatting and folding without changing the viewer.
+- Show XML, plain text and malformed JSON as original text without JSON validation
+  error panels, including in standalone body tabs.
+- Verify the actual VSIX's size, resources and body-viewer behavior before publishing.
+
 ## 0.1.6
 
 - Fix quick-filter group lookup so every toolbar button filters requests correctly,

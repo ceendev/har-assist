@@ -42,15 +42,39 @@ and [Azure Login with OIDC](https://github.com/Azure/login#login-with-openid-con
 ## Release a version
 
 1. Update the version in `package.json` and synchronize `package-lock.json`.
-2. Run `npm ci`, `npm run check`, and `npm run package`.
+2. Run `npm ci`, `npm run check`, `npm run package`, and `npm run check:package`.
 3. Install and verify `har-assist.vsix` locally.
 4. Commit and push to `ceen` or `main`.
-5. Create a regular GitHub Release whose tag is exactly `v` plus the package
-   version, such as `v0.1.0`.
+5. The **Auto Release on Version Bump** workflow detects the version change,
+   builds and checks the VSIX, creates its tag and GitHub Release, then publishes
+   to Marketplace.
 
-The release or tag triggers the Marketplace publish job. Normal pushes and pull
-requests build only. A published version cannot be reused; increment the version
-for every release.
+Pushes without a version change and pull requests build and verify only. Existing
+release/tag and manual publishing workflows remain available for retries. A
+published version cannot be reused; increment the version for every release.
+
+## Package contents and checks
+
+`.vscodeignore` is a runtime allowlist. JSONEditor's full `jsoneditor.min.js`
+already embeds Ace and the other libraries needed by the viewer. Ship that
+bundle, its CSS/icons, and the Codicons CSS/font, not the separate Ace builds or
+the JSONEditor examples, source and alternate bundles. Keep dependency license,
+notice and package metadata files for attribution. Do not replace the full bundle
+with the minimalist build, which lacks the requested code view.
+
+`npm run check:package` extracts the actual VSIX into a temporary directory and
+runs the body-viewer tests using only its packaged runtime resources. It also
+checks CSS image/font references, licenses, and size budgets (1 MiB compressed,
+3 MiB installed). Both publishing workflows run this check before uploading.
+The check requires `unzip`, available on the Ubuntu runners and macOS.
+
+For local checks without leaving a VSIX in the source directory:
+
+```bash
+task_package_dir=$(mktemp -d)
+npx --no-install vsce package --out "$task_package_dir/har-assist.vsix"
+HAR_ASSIST_VSIX="$task_package_dir/har-assist.vsix" npm run check:package
+```
 
 To retry a release explicitly:
 

@@ -49,6 +49,7 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run package
+      - run: npm run check:package
       - uses: actions/upload-artifact@v4
         with:
           name: har-assist-vsix

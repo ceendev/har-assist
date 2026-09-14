@@ -1,13 +1,33 @@
-.vscode/**
-.github/**
-.vscode-test/**
-test/**
-PUBLISHING.md
-resources/har-assist-icon-master.png
-*.vsix
-.gitignore
-.yarnrc
-vsc-extension-quickstart.md
-**/jsconfig.json
-**/*.map
-**/.eslintrc.json
+# Ship only runtime assets and attribution. Development dependencies, examples,
+# original artwork, source maps, tests and local HAR files stay out of the VSIX.
+**/*
+!package.json
+!extension.js
+!README.md
+!CHANGELOG.md
+!LICENSE.md
+!ARTWORK-PROVENANCE.md
+!THIRD_PARTY_NOTICES.md
+!resources/har-assist-icon.png
+!media/analyzer.html
+!media/script.js
+!media/style.css
+!media/jquery.min.js
+!media/body-viewer.js
+!media/body-viewer.css
+!media/body-panel.js
+
+# The full JSONEditor browser bundle includes Ace, JSON mode and its other
+# dependencies. Keep code mode; do not substitute the minimalist build.
+!node_modules/jsoneditor/dist/jsoneditor.min.js
+!node_modules/jsoneditor/dist/jsoneditor.min.css
+!node_modules/jsoneditor/dist/img/jsoneditor-icons.svg
+!node_modules/@vscode/codicons/dist/codicon.css
+!node_modules/@vscode/codicons/dist/codicon.ttf
+
+# Preserve production dependency licenses, notices and version/author metadata,
+# including the components embedded in the prebuilt JSONEditor bundle.
+!node_modules/**/LICENSE*
+!node_modules/**/NOTICE*
+!node_modules/*/package.json
+!node_modules/@*/*/package.json

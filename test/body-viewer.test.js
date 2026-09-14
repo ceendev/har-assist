@@ -112,6 +112,36 @@ test('plain text and invalid JSON also open safely in a read-only JSONEditor tex
 	}
 });
 
+test('XML, plain text and invalid JSON never show JSON parse errors in either inspector or new tabs', async t => {
+	const cases = [
+		['<?xml version="1.0" encoding="UTF-8"?><request protocol="3.0"><app status="ok"/></request>', 'application/xml'],
+		['{"unfinished":', 'application/json'],
+		['hello\n<&world', 'text/plain']
+	];
+	const host = createHost();
+	const ui = await openDOM(t, host.main, cases.map(([text, mime]) => entry(text, text, mime)));
+	ui.click('.request-items [index="0"]', true);
+	for (const [index, [text, mime]] of cases.entries()) {
+		ui.click('.request-items [index="' + index + '"]');
+		for (const source of ['request', 'response']) {
+			const editor = ui.window.jsonEditors[source];
+			assert.equal(editor.getMode(), 'text', mime);
+			// The library also validates asynchronously in text mode. Force that
+			// pass; checking immediately after mount misses the red error table.
+			await editor.validate();
+			assert.equal(ui.query('[data-json-source="' + source + '"] .jsoneditor-text-errors'), null);
+			assert.equal(editor.getText(), text, 'Do not repair, truncate or redact invalid JSON/text');
+			ui.click('.subscript[data-open-source="' + source + '"]', true);
+			await Promise.all(ui.pending);
+			const tab = await openDOM(t, host.panels.at(-1));
+			await new Promise(resolve => setTimeout(resolve, tab.window.JSONEditor.prototype.DEBOUNCE_INTERVAL + 50));
+			assert.equal(tab.query('.jsoneditor-text-errors'), null);
+			assert.equal(tab.query('textarea.jsoneditor-text').value, text);
+			assert.equal(tab.query('textarea.jsoneditor-text').readOnly, true);
+		}
+	}
+});
+
 test('fitted body layout survives empty bodies and keeps the open-tab action outside scrolling content', async t => {
 	const ui = await openDOM(t, createHost().main, [entry('', ''), entry(), entry('plain\n'.repeat(300), 'plain\n'.repeat(300), 'text/plain')]);
 	ui.click('.request-items [index="0"]', true);

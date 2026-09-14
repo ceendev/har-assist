@@ -1,8 +1,12 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { createRequire } = require('node:module');
 const { JSDOM, ResourceLoader, VirtualConsole } = require('jsdom');
-const root = path.resolve(__dirname, '../..');
+// Package checks run this same suite against the extracted VSIX, never falling
+// back to source-tree resources that a user would not have after installation.
+const root = process.env.HAR_ASSIST_TEST_ROOT || path.resolve(__dirname, '../..');
+const requireExtension = createRequire(path.join(root, 'extension.js'));
 
 function entry(requestText = '{"request":{"value":1}}', responseText = '{"response":{"value":2}}', mimeType = 'application/json') {
 	return {
@@ -29,7 +33,7 @@ function createHost() {
 	};
 	const module = { exports: {} };
 	vm.runInNewContext(fs.readFileSync(path.join(root, 'extension.js'), 'utf8'), {
-		module, require: id => id === 'vscode' ? vscode : require(id)
+		module, require: id => id === 'vscode' ? vscode : requireExtension(id)
 	});
 	const main = newPanel();
 	module.exports.renderHarEditor(main, module.exports.createHarDocument(uri(path.join(root, 'fixture.har'))), {

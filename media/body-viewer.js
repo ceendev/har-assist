@@ -45,6 +45,9 @@
             navigationBar: false,
             indentation: 2,
             statusBar: false,
+            // Text mode still runs JSON validation internally. Non-JSON HAR
+            // bodies are legitimate text, not errors to display to the user.
+            showErrorTable: false,
             history: false,
             enableSort: false,
             enableTransform: false,
