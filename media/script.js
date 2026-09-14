@@ -908,7 +908,6 @@ function setupGUI() {
 
     applyInspectorPanelState();
     renderRawViews();
-    renderJSONBodyViews();
 
     $(".quick-filter").off().on("click", function () {
         var filter = $(this).attr("data-filter");
@@ -1002,6 +1001,7 @@ function selectReq(index) {
         urlScroller.scrollLeft = 0;
     }
     renderRawViews();
+    renderJSONBodyViews();
     $("*[data][round]").each(function () {
         $(this).text(round(getNested($(this).attr("data")), $(this).attr("round")));
     });
