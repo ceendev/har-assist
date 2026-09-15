@@ -1,13 +1,13 @@
 // Virtualized byte view: only visible rows are rendered; selection uses offsets.
 /* global ResizeObserver */
 function mountHex(parent, body, copyText) {
+    if (!body.capturedBytes || !body.bytes) throw new Error('Captured bytes are required for Hex');
     const bytes = body.bytes, doc = parent.ownerDocument;
     const node = (tag, className, text) => {
         const el = doc.createElement(tag); el.className = className;
         if (text != null) el.textContent = text;
         return el;
     };
-    if (body.byteOrigin) parent.append(node('div', 'body-note', body.byteOrigin));
     const controls = node('div', 'hex-controls');
     const query = node('input', 'hex-query');
     query.placeholder = '查找字节，如 FF 00 4A'; query.setAttribute('aria-label', '查找十六进制字节');

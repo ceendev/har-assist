@@ -367,7 +367,7 @@ function renderRawViews() {
         notice.hidden = fallback.hidden = true;
         fallback.textContent = "";
         try {
-            rawViewers[source] = window.HarBodyViewer.mount(this, raw, "text/plain", { mode: rawViewModes[source] });
+            rawViewers[source] = window.HarBodyViewer.mount(this, raw, "text/plain", { mode: rawViewModes[source], hexSource: getBodyPayload(source) });
             rawViewerEntries[source] = selectedReq;
         } catch (_) {
             this.replaceChildren();
@@ -1273,7 +1273,7 @@ function getBodyPayload(source) {
     var mime = record.mimeType || header || "";
     var charset = /charset\s*=\s*["']?([^;\s"']+)/i.exec(header);
     if (charset && !/charset\s*=/i.test(mime)) mime += "; charset=" + charset[1];
-    return { text: String(record.text == null ? "" : record.text), mimeType: mime, encoding: record.encoding || "" };
+    return { text: String(record.text == null ? "" : record.text), mimeType: mime, encoding: typeof record.text === "string" ? record.encoding || "" : "" };
 }
 
 function destroyBodyEditors() {

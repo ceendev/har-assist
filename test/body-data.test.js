@@ -2,23 +2,26 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { describe, prettyJSON, hexRow } = require('../media/body-data');
 
-test('base64 bytes, charset decoding, and Unicode text byte provenance are explicit', () => {
+test('only explicit Base64 captures yield bytes; text and decode failures never synthesize bytes', () => {
     const data = describe('AP9B', 'application/octet-stream', 'base64');
     assert.deepEqual(Array.from(data.bytes), [0, 255, 65]);
     assert.equal(data.textual, false);
     assert.equal(data.capturedBytes, true);
-    assert.equal(data.byteOrigin, '');
     const unicode = describe('中😀\r\n', 'text/plain');
     assert.equal(unicode.text, '中😀\r\n');
-    assert.deepEqual(Array.from(unicode.bytes), Array.from(Buffer.from('中😀\r\n')));
-    assert.match(unicode.byteOrigin, /不代表原始/);
+    assert.equal(unicode.bytes, null);
+    assert.equal(unicode.capturedBytes, false);
     assert.equal(describe('6Q==', 'text/plain; charset=windows-1252', 'base64').text, 'é');
-    assert.match(describe('QQ==', 'text/plain; charset=unsupported-charset', 'base64').byteOrigin, /字符集不支持/);
+    assert.deepEqual(Array.from(describe('6Q==', 'text/plain; charset=unsupported-charset', 'base64').bytes), [0xe9]);
     const invalid = describe('not base64!', 'application/octet-stream', 'base64');
     assert.equal(invalid.text, 'not base64!');
     assert.equal(invalid.textual, true);
     assert.equal(invalid.capturedBytes, false);
-    assert.match(invalid.byteOrigin, /无法解码/);
+    assert.equal(invalid.bytes, null);
+    for (const [text, encoding] of [['AP9B', ''], ['AP9B', 'unknown'], [null, 'base64'], [undefined, 'base64'], [12, 'base64']]) {
+        assert.equal(describe(text, 'text/plain', encoding).bytes, null);
+    }
+    assert.equal(describe('', 'text/plain', 'base64').bytes.length, 0, 'Explicitly saved empty bytes differ from unavailable bytes');
 });
 
 test('JSON is detected by parsing, other content stays in its appropriate language', () => {

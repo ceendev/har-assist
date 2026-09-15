@@ -1,4 +1,4 @@
-// Pure body interpretation. Never derive bytes from formatted text.
+// Text and captured bytes are separate. Never invent bytes from HAR strings.
 function describe(text, mimeType, encoding = '') {
     const original = String(text == null ? '' : text);
     const mime = String(mimeType || '').toLowerCase().split(';', 1)[0].trim();
@@ -8,32 +8,28 @@ function describe(text, mimeType, encoding = '') {
     let textual = !mime || mime.startsWith('text/') || jsonMime ||
         /^application\/(?:[^/]+\+)?xml$/.test(mime) ||
         ['application/javascript', 'application/ecmascript', 'application/x-www-form-urlencoded', 'application/graphql'].includes(mime);
-    let decoded = original, bytes;
-    let byteOrigin = '文本按 UTF-8 编码；不代表原始传输字节';
+    let decoded = original, bytes = null;
     let capturedBytes = false;
-    if (encoding === 'base64') {
+    if (encoding === 'base64' && typeof text === 'string') {
         try {
             const binary = atob(original);
             bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
             capturedBytes = true;
-            byteOrigin = '';
             if (textual) {
                 const charset = /charset\s*=\s*["']?([^;\s"']+)/i.exec(mimeType || '');
                 try { decoded = new TextDecoder(charset ? charset[1] : 'utf-8', { ignoreBOM: true }).decode(bytes); }
                 catch (_) {
                     decoded = new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
-                    byteOrigin = '字符集不支持，文本按 UTF-8 显示';
                 }
             }
         } catch (_) {
+            bytes = null;
+            capturedBytes = false;
             textual = true;
-            byteOrigin = 'Base64 无法解码；以下为 HAR 原始文本的 UTF-8 字节';
         }
     } else if (encoding) {
         textual = true;
-        byteOrigin = '未知 HAR 编码；以下为 HAR 原始文本的 UTF-8 字节';
     }
-    if (!bytes) bytes = new TextEncoder().encode(original);
     let json = false;
     if (textual && decoded.length) {
         try { JSON.parse(decoded); json = true; } catch (_) { /* Plain text is valid viewer content. */ }
@@ -45,7 +41,10 @@ function describe(text, mimeType, encoding = '') {
     else if (/javascript|ecmascript/.test(mime)) language = 'javascript';
     else if (mime === 'text/css') language = 'css';
     const preview = image ? 'image' : media || (language === 'html' ? 'html' : '');
-    return { original, text: decoded, bytes, textual, json, language, mime, preview, capturedBytes, byteOrigin };
+    // A binary MIME without captured bytes can still expose its recorded HAR
+    // string as text, but must not fabricate a Hex view of that string.
+    if (!capturedBytes && !preview) textual = true;
+    return { original, text: decoded, bytes, textual, json, language, mime, preview, capturedBytes };
 }
 
 // Preserve number spelling, large integers and duplicate keys when indenting JSON.

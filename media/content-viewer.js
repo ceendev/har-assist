@@ -72,6 +72,12 @@ function safeHTML(text) {
 
 function mount(container, text, mimeType, options = {}) {
     const body = describe(text, mimeType, options.encoding || '');
+    // Raw HTTP text is reconstructed from HAR fields. Its Hex mode must use
+    // the independently captured body, never bytes made from the HTTP string.
+    const hexBody = options.hexSource
+        ? describe(options.hexSource.text, options.hexSource.mimeType, options.hexSource.encoding)
+        : body;
+    const hasHex = hexBody.capturedBytes;
     const doc = container.ownerDocument;
     const node = (tag, className, text) => { const el = doc.createElement(tag); el.className = className; if (text != null) el.textContent = text; return el; };
     container.classList.add('body-viewer'); container.replaceChildren();
@@ -79,13 +85,14 @@ function mount(container, text, mimeType, options = {}) {
     const content = node('div', 'body-viewer-content'); container.append(tools, content);
     const modes = [];
     if (body.textual && body.language !== 'text') modes.push(['code', body.language.toUpperCase()]);
-    if (body.textual) modes.push(['text', '文本']);
-    modes.push(['hex', 'Hex']);
+    if (body.textual) modes.push(['text', options.hexSource ? 'HTTP 文本' : '文本']);
+    modes.push(['hex', options.hexSource ? '正文 Hex' : 'Hex']);
     if (body.preview) modes.push(['preview', '预览']);
     const buttons = new Map();
     let mode, editor = null, hex = null, cleanupPreview = () => {}, destroyed = false, formatted;
     const api = {
         body,
+        hexBody,
         get editor() { return editor; },
         get hex() { return hex; },
         getMode: () => mode,
@@ -112,9 +119,11 @@ function mount(container, text, mimeType, options = {}) {
             frame.srcdoc = safeHTML(body.text); content.append(frame); return;
         }
         if (!body.capturedBytes && body.mime !== 'image/svg+xml') {
-            content.append(node('div', 'body-note', 'HAR 未保存可还原的二进制内容；请使用 Hex 查看已记录数据。')); return;
+            content.append(node('div', 'body-note', 'HAR 未保存可预览的二进制内容。')); return;
         }
-        const url = URL.createObjectURL(new Blob([body.bytes], { type: body.mime }));
+        // SVG can be rendered directly from its recorded markup. This does
+        // not make the browser's Blob serialization a captured byte source.
+        const url = URL.createObjectURL(new Blob([body.bytes || body.text], { type: body.mime }));
         if (body.preview === 'image') {
             const controls = node('div', 'body-image-controls'), viewport = node('div', 'body-image-scroll'), stage = node('div', 'body-image-stage');
             const img = node('img', 'body-image'); img.alt = 'HAR 图片预览'; img.draggable = false;
@@ -151,11 +160,11 @@ function mount(container, text, mimeType, options = {}) {
         }
     }
     function setMode(next) {
-        if (destroyed || !buttons.has(next)) return;
+        if (destroyed || !buttons.has(next) || (next === 'hex' && !hasHex)) return;
         disposeContent(); mode = next; container.dataset.mode = mode;
         searchButton.hidden = mode === 'hex' || mode === 'preview';
         for (const [key, button] of buttons) { button.classList.toggle('selected', key === mode); button.setAttribute('aria-pressed', String(key === mode)); }
-        if (mode === 'hex') { hex = mountHex(content, body, copyText); return; }
+        if (mode === 'hex') { hex = mountHex(content, hexBody, copyText); return; }
         if (mode === 'preview') { preview(); return; }
         let value = body.text;
         const extensions = [EditorState.readOnly.of(true), EditorView.editable.of(false), lineNumbers(), highlightActiveLineGutter(),
@@ -169,6 +178,10 @@ function mount(container, text, mimeType, options = {}) {
     }
     for (const [key, label] of modes) {
         const button = node('button', '', label); button.type = 'button'; button.dataset.bodyMode = key;
+        if (key === 'hex' && !hasHex) {
+            button.disabled = true;
+            button.title = 'HAR 未保存可还原的正文字节';
+        }
         button.addEventListener('click', () => setMode(key)); tools.append(button); buttons.set(key, button);
     }
     const searchButton = node('button', 'body-search', '查找'); searchButton.type = 'button';
@@ -176,7 +189,7 @@ function mount(container, text, mimeType, options = {}) {
     const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (editor) editor.requestMeasure(); }) : null;
     if (observer) observer.observe(content);
     const initial = body.textual ? (body.language === 'text' ? 'text' : 'code') : body.preview ? 'preview' : 'hex';
-    try { setMode(buttons.has(options.mode) ? options.mode : initial); }
+    try { setMode(buttons.has(options.mode) && !buttons.get(options.mode).disabled ? options.mode : initial); }
     catch (error) { api.destroy(); throw error; }
     return api;
 }

@@ -2,6 +2,15 @@
 
 All notable changes to Har Assist are documented here.
 
+## 0.1.20
+
+- Fix Raw Hex to display the independently captured body bytes, labeled
+  **正文 Hex**, instead of UTF-8 re-encoding a reconstructed HTTP message.
+- Only enable Hex for explicitly saved, valid Base64 bytes in Raw, body and
+  standalone views; never invent bytes from text-only or missing captures.
+- Remove encoding/provenance banners and their empty rows while preserving
+  byte-exact selection/copy, charset-independent Hex and SVG text previews.
+
 ## 0.1.19
 
 - Horizontally scroll the request list to read complete URLs, sizing the URL
