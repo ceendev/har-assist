@@ -61,7 +61,7 @@ test('the actual VSIX stays lean and its isolated body viewers remain functional
 	// Start an independent runner; inheriting the parent test context can cause
 	// Node to skip the child suite silently instead of reporting its failures.
 	delete childEnv.NODE_TEST_CONTEXT;
-	const { stdout } = await run(process.execPath, ['--test', '--test-reporter=tap', 'test/content-viewer.test.js', 'test/request-list.test.js'], {
+	const { stdout } = await run(process.execPath, ['--test', '--test-reporter=tap', 'test/content-viewer.test.js', 'test/request-list.test.js', 'test/overview.test.js'], {
 		cwd: root,
 		env: childEnv,
 		timeout: 120000

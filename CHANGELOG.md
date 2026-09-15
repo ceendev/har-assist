@@ -2,6 +2,16 @@
 
 All notable changes to Har Assist are documented here.
 
+## 0.1.24
+
+- Redesign the request overview with Reqable-style basic information and collapsible
+  application, connection, timing and size groups, with aligned resizable columns.
+- Read Reqable's application/connection metadata and microsecond timestamps, and
+  match its complete header/message size display without double-counting standard HAR.
+- Fall back to standard HAR timing fields where available, without double-counting
+  SSL; show unknown values as dashes and preserve real zero sizes and durations.
+- Keep the full URL in the Inspector bar and retain the body and Raw viewers.
+
 ## 0.1.23
 
 - Remove the Base64-only Hex restriction from request/response bodies and their

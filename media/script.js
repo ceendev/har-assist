@@ -870,7 +870,7 @@ function setupDataTableColumnResizers() {
     if (!inspector) {
         return;
     }
-    document.querySelectorAll("[data-table]").forEach(function (table) {
+    document.querySelectorAll("[data-table], [data-overview-table]").forEach(function (table) {
         var resizer = document.createElement("div");
         resizer.className = "data-table-column-resizer";
         resizer.setAttribute("role", "separator");
@@ -881,7 +881,7 @@ function setupDataTableColumnResizers() {
 
         function applyKeyWidth(width) {
             var nextWidth = clampInspectorTableKeyWidth(width, table.getBoundingClientRect().width);
-            inspector.style.setProperty("--inspector-key-width", nextWidth + "px");
+            inspector.style.setProperty(table.hasAttribute("data-overview-table") ? "--overview-key-width" : "--inspector-key-width", nextWidth + "px");
             resizer.setAttribute("aria-valuenow", Math.round(nextWidth));
         }
 
@@ -890,7 +890,8 @@ function setupDataTableColumnResizers() {
             event.stopPropagation();
             var tableRect = table.getBoundingClientRect();
             var startX = event.clientX;
-            var startWidth = resizer.getBoundingClientRect().left - tableRect.left;
+            var resizerRect = resizer.getBoundingClientRect();
+            var startWidth = resizerRect.left + resizerRect.width / 2 - tableRect.left;
             document.body.classList.add("resizing-columns");
 
             function handleMove(moveEvent) {
@@ -901,10 +902,12 @@ function setupDataTableColumnResizers() {
                 document.body.classList.remove("resizing-columns");
                 window.removeEventListener("pointermove", handleMove);
                 window.removeEventListener("pointerup", handleUp);
+                window.removeEventListener("pointercancel", handleUp);
             }
 
             window.addEventListener("pointermove", handleMove);
             window.addEventListener("pointerup", handleUp);
+            window.addEventListener("pointercancel", handleUp);
         });
 
         resizer.addEventListener("keydown", function (event) {
@@ -914,7 +917,8 @@ function setupDataTableColumnResizers() {
             event.preventDefault();
             event.stopPropagation();
             var tableRect = table.getBoundingClientRect();
-            var currentWidth = resizer.getBoundingClientRect().left - tableRect.left;
+            var resizerRect = resizer.getBoundingClientRect();
+            var currentWidth = resizerRect.left + resizerRect.width / 2 - tableRect.left;
             applyKeyWidth(currentWidth + (event.key == "ArrowLeft" ? -12 : 12));
         });
     });
@@ -1077,25 +1081,6 @@ function selectReq(index) {
     $("*[data][round]").each(function () {
         $(this).text(round(getNested($(this).attr("data")), $(this).attr("round")));
     });
-    $(".inspector-timing-bars").attr("totalTime", 0);
-    $(".inspector-timing-bars .data-bar").each(function () {
-        if ($(this).html() > 0) {
-            $(this).parent().attr("totalTime", (+$(this).parent().attr("totalTime")) + (+$(this).html()));
-        }
-        $(this).attr("time", $(this).html());
-        $(this).html("");
-    });
-    var current = 0;
-    $(".inspector-timing-bars .data-bar").each(function () {
-        var total = +$(this).parent().attr("totalTime");
-        var time = +$(this).attr("time");
-        if (time > 0) {
-            $(this).attr("style", "width:" + ((time / total) * 100) + "%;margin-left:" + ((current / total) * 100) + "%;");
-            current += time;
-        } else {
-            $(this).attr("style", "");
-        }
-    });
     $("*[data-table]").html("");
     $("*[data-table]").each(function () {
         var table = getNested($(this).attr("data-table"));
@@ -1106,6 +1091,9 @@ function selectReq(index) {
             }
         }
     });
+    if (window.HarOverview) {
+        window.HarOverview.renderOverview(document.querySelector(".request-overview"), selectedReq.obj, har.log.creator);
+    }
     setupDataTableColumnResizers();
     $("*[require-data]").each(function () {
         var table = getNested($(this).attr("require-data"));

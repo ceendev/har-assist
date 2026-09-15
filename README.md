@@ -23,6 +23,9 @@ files that exceed VS Code's normal text-document size limit.
   to reveal long paths and query strings; hover the bar to reveal its copy
   button, with pointer-local success feedback.
 - Open request and response details in a draggable split inspector.
+- Inspect a Reqable-style overview with basic metadata and collapsible application,
+  connection, timing and size groups. Preserve Reqable's microsecond timestamps,
+  align resizable key/value columns, and distinguish unknown values from zero.
 - Resize columns throughout the request list and inspector tables.
 - Collapse either the request or response inspector while keeping one visible.
 - View JSON, XML, HTML, JavaScript, CSS and plain text in read-only CodeMirror

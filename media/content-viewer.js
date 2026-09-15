@@ -13,6 +13,7 @@ const { javascript } = require('@codemirror/lang-javascript');
 const { css } = require('@codemirror/lang-css');
 const { describe, describeHTTP, prettyJSON, hexRow } = require('./body-data');
 const { mountHex } = require('./hex-view');
+window.HarOverview = require('./overview');
 
 let hostApi;
 let copySequence = 0;
