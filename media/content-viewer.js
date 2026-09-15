@@ -115,7 +115,7 @@ function mount(container, text, mimeType, options = {}) {
             const consent = node('div', 'body-html-consent');
             consent.append(node('strong', '', '真实预览安全提醒'));
             consent.append(node('p', '', '真实预览会执行 HTML 中的脚本、加载外部资源，链接和表单可能向真实网站发送请求。请仅预览可信内容。'));
-            const start = node('button', 'body-html-start', '开始真实预览'); start.type = 'button';
+            const start = node('button', 'body-html-start', '确认预览'); start.type = 'button';
             start.addEventListener('click', () => {
                 if (destroyed || mode !== 'preview' || !content.contains(consent)) return;
                 const frame = node('iframe', 'body-html-preview');

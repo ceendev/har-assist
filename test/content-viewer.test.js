@@ -617,7 +617,7 @@ test('HTML requires a fresh explicit confirmation before active preview in bodie
         assert.equal(viewer.querySelector('iframe'), null, 'Selecting Preview must not create a browsing context or load page resources');
         assert.match(viewer.querySelector('.body-html-consent').textContent, /安全提醒.*执行 HTML.*真实网站/);
         const start = viewer.querySelector('.body-html-start');
-        assert.equal(start.textContent, '开始真实预览');
+        assert.equal(start.textContent, '确认预览');
         start.click();
         const frame = viewer.querySelector('iframe');
         view.window.dispatchEvent(new view.window.MessageEvent('message', { source: frame.contentWindow, data: { command: 'loadError', message: 'Untrusted preview message' } }));

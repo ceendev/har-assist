@@ -2,6 +2,11 @@
 
 All notable changes to Har Assist are documented here.
 
+## 0.1.30
+
+- Rename the HTML preview confirmation button to “确认预览”; keep the risk notice
+  and explicit-confirmation behavior unchanged.
+
 ## 0.1.29
 
 - Replace disabled HTML preview with a risk notice and “开始真实预览” button.
