@@ -2,6 +2,15 @@
 
 All notable changes to Har Assist are documented here.
 
+## 0.1.23
+
+- Remove the Base64-only Hex restriction from request/response bodies and their
+  standalone tabs. JSON, plain text, XML, HTML and other recorded text support Hex.
+- Use the unformatted HAR text as UTF-8 when no decoded Base64 bytes are available,
+  preserving whitespace, line endings, BOMs, escapes, duplicate keys and numbers.
+- Retain direct Base64 byte decoding, image/media previews and complete-message
+  Raw views, without adding encoding banners or changing the HAR source.
+
 ## 0.1.22
 
 - Keep UTF-8 text readable in both complete-message Raw views when a Base64 HAR

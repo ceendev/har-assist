@@ -74,7 +74,6 @@ function mount(container, text, mimeType, options = {}) {
     const body = options.httpMessage
         ? describeHTTP(text, options.httpMessage.prefix, options.httpMessage.payload)
         : describe(text, mimeType, options.encoding || '');
-    const hasHex = body.bytes != null;
     const doc = container.ownerDocument;
     const node = (tag, className, text) => { const el = doc.createElement(tag); el.className = className; if (text != null) el.textContent = text; return el; };
     container.classList.add('body-viewer'); container.replaceChildren();
@@ -157,7 +156,7 @@ function mount(container, text, mimeType, options = {}) {
         }
     }
     function setMode(next) {
-        if (destroyed || !buttons.has(next) || (next === 'hex' && !hasHex)) return;
+        if (destroyed || !buttons.has(next)) return;
         disposeContent(); mode = next; container.dataset.mode = mode;
         searchButton.hidden = mode === 'hex' || mode === 'preview';
         for (const [key, button] of buttons) { button.classList.toggle('selected', key === mode); button.setAttribute('aria-pressed', String(key === mode)); }
@@ -175,10 +174,6 @@ function mount(container, text, mimeType, options = {}) {
     }
     for (const [key, label] of modes) {
         const button = node('button', '', label); button.type = 'button'; button.dataset.bodyMode = key;
-        if (key === 'hex' && !hasHex) {
-            button.disabled = true;
-            button.title = 'HAR 未保存可还原的正文字节';
-        }
         button.addEventListener('click', () => setMode(key)); tools.append(button); buttons.set(key, button);
     }
     const searchButton = node('button', 'body-search', '查找'); searchButton.type = 'button';
@@ -186,7 +181,7 @@ function mount(container, text, mimeType, options = {}) {
     const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (editor) editor.requestMeasure(); }) : null;
     if (observer) observer.observe(content);
     const initial = body.textual ? (body.language === 'text' ? 'text' : 'code') : body.preview ? 'preview' : 'hex';
-    try { setMode(buttons.has(options.mode) && !buttons.get(options.mode).disabled ? options.mode : initial); }
+    try { setMode(buttons.has(options.mode) ? options.mode : initial); }
     catch (error) { api.destroy(); throw error; }
     return api;
 }

@@ -1,4 +1,5 @@
-// Body captures keep recorded text and explicitly captured bytes separate.
+// Hex uses decoded Base64 bytes when present, otherwise the unformatted HAR
+// text as UTF-8. Keep capture metadata separate from Hex availability.
 function describe(text, mimeType, encoding = '') {
     const original = String(text == null ? '' : text);
     const mime = String(mimeType || '').toLowerCase().split(';', 1)[0].trim();
@@ -42,8 +43,9 @@ function describe(text, mimeType, encoding = '') {
     else if (mime === 'text/css') language = 'css';
     const preview = image ? 'image' : media || (language === 'html' ? 'html' : '');
     // A binary MIME without captured bytes can still expose its recorded HAR
-    // string as text, but must not fabricate a Hex view of that string.
+    // string as text. Hex remains available for that same recorded content.
     if (!capturedBytes && !preview) textual = true;
+    if (bytes == null) bytes = new TextEncoder().encode(original);
     return { original, text: decoded, bytes, textual, json, language, mime, preview, capturedBytes };
 }
 
@@ -54,12 +56,12 @@ function describeHTTP(text, prefix, payload) {
     const body = describe(payload.text, payload.mimeType, payload.encoding);
     const encoder = new TextEncoder();
     const head = encoder.encode(prefix);
-    const tail = body.bytes || encoder.encode(body.original);
+    const tail = body.bytes;
     const bytes = new Uint8Array(head.length + tail.length);
     bytes.set(head);
     bytes.set(tail, head.length);
     // The complete message is serialized from HAR, not a captured wire packet.
-    return { ...describe(text, 'text/plain'), bytes, capturedBytes: false };
+    return { original: text, text, bytes, textual: true, json: false, language: 'text', mime: 'text/plain', preview: '', capturedBytes: false };
 }
 
 // Preserve number spelling, large integers and duplicate keys when indenting JSON.

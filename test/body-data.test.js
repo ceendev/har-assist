@@ -26,14 +26,14 @@ test('Raw byte composition contains the entire prefix and appends Base64 bytes w
     }
 });
 
-test('only explicit Base64 captures yield bytes; text and decode failures never synthesize bytes', () => {
+test('Hex always has bytes: decode Base64 directly, otherwise encode the unchanged recorded text', () => {
     const data = describe('AP9B', 'application/octet-stream', 'base64');
     assert.deepEqual(Array.from(data.bytes), [0, 255, 65]);
     assert.equal(data.textual, false);
     assert.equal(data.capturedBytes, true);
     const unicode = describe('中😀\r\n', 'text/plain');
     assert.equal(unicode.text, '中😀\r\n');
-    assert.equal(unicode.bytes, null);
+    assert.deepEqual(Array.from(unicode.bytes), Array.from(Buffer.from('中😀\r\n')));
     assert.equal(unicode.capturedBytes, false);
     assert.equal(describe('6Q==', 'text/plain; charset=windows-1252', 'base64').text, 'é');
     assert.deepEqual(Array.from(describe('6Q==', 'text/plain; charset=unsupported-charset', 'base64').bytes), [0xe9]);
@@ -41,11 +41,24 @@ test('only explicit Base64 captures yield bytes; text and decode failures never 
     assert.equal(invalid.text, 'not base64!');
     assert.equal(invalid.textual, true);
     assert.equal(invalid.capturedBytes, false);
-    assert.equal(invalid.bytes, null);
+    assert.deepEqual(Array.from(invalid.bytes), Array.from(Buffer.from('not base64!')));
     for (const [text, encoding] of [['AP9B', ''], ['AP9B', 'unknown'], [null, 'base64'], [undefined, 'base64'], [12, 'base64']]) {
-        assert.equal(describe(text, 'text/plain', encoding).bytes, null);
+        const data = describe(text, 'text/plain', encoding);
+        assert.deepEqual(Array.from(data.bytes), Array.from(Buffer.from(text == null ? '' : String(text))));
+        assert.equal(data.capturedBytes, false);
     }
-    assert.equal(describe('', 'text/plain', 'base64').bytes.length, 0, 'Explicitly saved empty bytes differ from unavailable bytes');
+    assert.equal(describe('', 'text/plain', 'base64').bytes.length, 0);
+    assert.equal(describe('', 'text/plain').bytes.length, 0);
+});
+
+test('plain JSON Hex preserves original whitespace, CRLF, BOM, escapes, duplicate keys and large numbers', () => {
+    for (const raw of [' {\r\n"id":9007199254740993,"id":1e999,"text":"中😀 \\u0041"\r\n}\t', '\uFEFF{"value":1}', '{"incomplete":']) {
+        const data = describe(raw, 'application/json');
+        assert.equal(data.original, raw);
+        assert.equal(data.text, raw);
+        assert.deepEqual(Array.from(data.bytes), Array.from(Buffer.from(raw)));
+        assert.equal(data.capturedBytes, false);
+    }
 });
 
 test('JSON is detected by parsing, other content stays in its appropriate language', () => {

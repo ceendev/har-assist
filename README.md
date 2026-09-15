@@ -31,9 +31,10 @@ files that exceed VS Code's normal text-document size limit.
   **Hex** modes. Both include the start line, all headers, separator and body.
   Hex serializes the HAR header fields and appends decoded Base64 body bytes
   unchanged (or UTF-8 text when only text was saved).
-- Switch captured bodies to Hex with byte offsets, ASCII, byte search and
-  selection/copy. Hex decodes explicitly stored Base64 directly; it is disabled
-  for text-only, missing, invalid or unsupported byte captures in body-only tabs.
+- Switch request and response bodies to Hex with byte offsets, ASCII, byte search
+  and selection/copy, including JSON, text, XML and HTML in standalone tabs.
+  Hex uses decoded Base64 bytes directly, or the unchanged HAR text as UTF-8;
+  JSON formatting and HTML preview never alter its content.
 - Preview images with zoom/pan/rotate, and play captured audio/video when the
   content is complete and its codec is supported by VS Code.
 - Preview HTML in a sandbox with scripts, network resources and navigation
