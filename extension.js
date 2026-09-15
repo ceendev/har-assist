@@ -101,7 +101,7 @@ function renderHarEditor(panel, document, context) {
 			return;
 		}
 		if (message.action === 'openNewTab' && typeof message.text === 'string') {
-			openBodyEditor(context, message.text, message.mimeType || (message.json ? 'application/json' : 'text/plain'), message.source, { encoding: message.encoding, mode: message.mode });
+			openBodyEditor(context, message.text, message.mimeType || (message.json ? 'application/json' : 'text/plain'), message.source, { encoding: message.encoding, mode: message.mode, baseURL: message.baseURL });
 			return;
 		}
 

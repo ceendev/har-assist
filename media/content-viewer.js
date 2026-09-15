@@ -19,6 +19,7 @@ let hostApi;
 let copySequence = 0;
 const pendingCopies = new Map();
 window.addEventListener('message', event => {
+    if (event.source && event.source !== window && event.source !== window.parent) return;
     if (event.data && event.data.command === 'copyBodyResult') {
         const complete = pendingCopies.get(event.data.id);
         if (complete) complete(event.data.success);
@@ -55,20 +56,21 @@ const highlighting = HighlightStyle.define([
     { tag: tags.comment, color: 'var(--vscode-descriptionForeground, #777)', fontStyle: 'italic' }
 ]);
 
-function safeHTML(text) {
+function previewHTML(text, baseURL) {
+    let url;
+    try { url = new URL(baseURL); } catch (_) { return text; }
+    if (!['http:', 'https:'].includes(url.protocol)) return text;
+    // Only the preview document gains a base URL. Keep scripts, resources,
+    // navigation, forms and any policies supplied by the page itself intact.
     const doc = new DOMParser().parseFromString(text, 'text/html');
-    doc.querySelectorAll('script,iframe,frame,frameset,object,embed,base,meta,link,template').forEach(el => el.remove());
-    doc.querySelectorAll('*').forEach(el => {
-        for (const attr of Array.from(el.attributes)) {
-            const name = attr.name.toLowerCase();
-            if (name.startsWith('on') || ['href', 'xlink:href', 'src', 'srcset', 'action', 'formaction', 'ping', 'poster', 'background', 'data', 'srcdoc'].includes(name)) {
-                if (name === 'src' && el.tagName === 'IMG' && /^data:image\//i.test(attr.value)) continue;
-                el.removeAttribute(attr.name);
-            }
-        }
-    });
-    const policy = "default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'";
-    return '<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="' + policy + '">' + doc.head.innerHTML + '</head><body>' + doc.body.innerHTML + '</body></html>';
+    const recordedBase = doc.querySelector('base[href]');
+    if (recordedBase) {
+        try { recordedBase.setAttribute('href', new URL(recordedBase.getAttribute('href'), url).href); } catch (_) { /* Retain an invalid recorded base verbatim. */ }
+    } else {
+        const base = doc.createElement('base'); base.setAttribute('href', url.href); doc.head.prepend(base);
+    }
+    const doctype = doc.doctype ? new XMLSerializer().serializeToString(doc.doctype) : '';
+    return doctype + doc.documentElement.outerHTML;
 }
 
 function mount(container, text, mimeType, options = {}) {
@@ -110,10 +112,21 @@ function mount(container, text, mimeType, options = {}) {
     }
     function preview() {
         if (body.preview === 'html') {
-            content.append(node('div', 'body-note', '安全预览：脚本、外部资源、链接跳转及表单提交已禁用'));
-            const frame = node('iframe', 'body-html-preview');
-            frame.title = 'HTML 安全预览'; frame.setAttribute('sandbox', ''); frame.referrerPolicy = 'no-referrer';
-            frame.srcdoc = safeHTML(body.text); content.append(frame); return;
+            const consent = node('div', 'body-html-consent');
+            consent.append(node('strong', '', '真实预览安全提醒'));
+            consent.append(node('p', '', '真实预览会执行 HTML 中的脚本、加载外部资源，链接和表单可能向真实网站发送请求。请仅预览可信内容。'));
+            const start = node('button', 'body-html-start', '开始真实预览'); start.type = 'button';
+            start.addEventListener('click', () => {
+                if (destroyed || mode !== 'preview' || !content.contains(consent)) return;
+                const frame = node('iframe', 'body-html-preview');
+                frame.title = 'HTML 真实预览';
+                // Do not grant same-origin or top-navigation access to the VS
+                // Code host. Only this explicit click enables active content.
+                frame.setAttribute('sandbox', 'allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals');
+                frame.referrerPolicy = 'no-referrer';
+                frame.srcdoc = previewHTML(body.text, options.baseURL); content.replaceChildren(frame);
+            });
+            consent.append(start); content.append(consent); return;
         }
         if (!body.capturedBytes && body.mime !== 'image/svg+xml') {
             content.append(node('div', 'body-note', 'HAR 未保存可预览的二进制内容。')); return;
@@ -194,4 +207,4 @@ function mount(container, text, mimeType, options = {}) {
     return api;
 }
 
-window.HarBodyViewer = { describe, mount, prettyJSON, hexRow, safeHTML, setHostApi: api => { hostApi = api; } };
+window.HarBodyViewer = { describe, mount, prettyJSON, hexRow, previewHTML, setHostApi: api => { hostApi = api; } };

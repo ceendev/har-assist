@@ -40,8 +40,11 @@ files that exceed VS Code's normal text-document size limit.
   JSON formatting and HTML preview never alter its content.
 - Preview images with zoom/pan/rotate, and play captured audio/video when the
   content is complete and its codec is supported by VS Code.
-- Preview HTML in a sandbox with scripts, network resources and navigation
-  disabled. Preview sanitization does not change the original HAR/source view.
+- HTML Preview first shows a risk notice and a **开始真实预览** button. Only clicking
+  this button enables captured scripts, live resources, links and forms; other
+  requests and new tabs require their own confirmation. Relative resources resolve
+  against the recorded request URL. The preview stays isolated from the VS Code
+  host, and browser/site security policies still apply. HAR/source bytes stay unchanged.
 - Double-click the fixed open-tab hint to use the same viewer in a separate tab.
 - Parse HAR data directly in the WebView, with available memory as the practical
   file-size limit.

@@ -66,6 +66,17 @@ body.vscode-light .body-viewer, body.vscode-high-contrast-light .body-viewer { c
 }
 .body-note { flex: 0 0 auto; padding: 5px 8px; font-size: 11px; color: var(--vscode-descriptionForeground, #777); white-space: normal; }
 .body-html-preview { flex: 1 1 0; min-height: 0; width: 100%; border: 0; background: white; }
+.body-html-consent {
+    min-height: 0; padding: 16px; overflow: auto; white-space: normal;
+    color: var(--vscode-editor-foreground, #333); font: 13px/1.6 var(--vscode-font-family, sans-serif);
+}
+.body-html-consent strong { color: var(--vscode-editorWarning-foreground, #cca700); }
+.body-html-consent p { margin: 8px 0 12px; }
+.body-html-consent .body-html-start {
+    color: var(--vscode-button-foreground, #fff); background: var(--vscode-button-background, #007acc);
+    border-color: var(--vscode-button-border, transparent); padding: 5px 12px;
+}
+.body-html-consent .body-html-start:hover { background: var(--vscode-button-hoverBackground, #0062a3); }
 .body-media { width: 100%; max-height: 100%; min-height: 0; }
 .body-image-scroll { flex: 1 1 0; min-height: 0; overflow: auto; cursor: grab; touch-action: none; }
 .body-image-stage { position: relative; margin: auto; }

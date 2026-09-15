@@ -2,6 +2,17 @@
 
 All notable changes to Har Assist are documented here.
 
+## 0.1.29
+
+- Replace disabled HTML preview with a risk notice and “开始真实预览” button.
+  No HTML frame or live resources are loaded until explicitly confirmed; each
+  request, new tab and return to Preview requires a fresh confirmation.
+- Allow scripts, external resources, links and forms in confirmed previews, and
+  resolve relative resources against the recorded request URL in standalone tabs
+  as well as the Inspector. Preserve page-owned policies and original HAR bytes.
+- Keep active pages isolated from the VS Code host and ignore preview-originated
+  messages that impersonate extension messages. Browser/site restrictions still apply.
+
 ## 0.1.28
 
 - Rename the request Path tab to “路径” and move Parameters ahead of Request

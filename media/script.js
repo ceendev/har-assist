@@ -1179,6 +1179,7 @@ function selectReq(index) {
             text: payload.text,
             mimeType: payload.mimeType,
             encoding: payload.encoding,
+            baseURL: payload.baseURL,
             mode: bodyViewers[source] && bodyViewers[source].getMode(),
             source: source
         });
@@ -1298,7 +1299,7 @@ function getBodyPayload(source, entry) {
     var mime = record.mimeType || header || "";
     var charset = /charset\s*=\s*["']?([^;\s"']+)/i.exec(header);
     if (charset && !/charset\s*=/i.test(mime)) mime += "; charset=" + charset[1];
-    return { text: String(record.text == null ? "" : record.text), mimeType: mime, encoding: typeof record.text === "string" ? record.encoding || "" : "" };
+    return { text: String(record.text == null ? "" : record.text), mimeType: mime, encoding: typeof record.text === "string" ? record.encoding || "" : "", baseURL: request.url || "" };
 }
 
 function destroyBodyEditors() {
@@ -1499,8 +1500,9 @@ function addRequestGUIItem(entity) {
 }
 
 window.addEventListener('message', event => {
-
+    if (event.source && event.source !== window && event.source !== window.parent) return;
     const message = event.data; // The JSON data our extension sent
+    if (!message || typeof message !== 'object') return;
 
     if (message.command === 'copyRequestUrlResult') {
         showInspectorCopyResult(message.success);

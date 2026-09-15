@@ -605,23 +605,78 @@ test('image/audio/video previews bypass CodeMirror, revoke blobs and offer Hex i
     }
 });
 
-test('HTML preview is opt-in, sandboxed and strips active navigation/network markup without changing source', async t => {
-    const raw = '<meta http-equiv="refresh" content="0;url=https://evil.test"><style>p{color:red}</style><script>window.injected=1</script><iframe src="https://evil.test"></iframe><a href="https://evil.test" onclick="alert(1)">link</a><img src="https://evil.test/x"><p>正文</p>';
-    const ui = await openDOM(t, createHost().main, [entry(raw, raw, 'text/html')]);
+test('HTML requires a fresh explicit confirmation before active preview in bodies and new tabs', async t => {
+    const raw = '<!doctype html><html><head><link rel="stylesheet" href="theme.css"><script src="app.js"></script></head><body><script>window.injected=1</script><iframe src="nested.html"></iframe><a href="next.html" onclick="window.clicked=1">link</a><img src="image.png"><form action="submit" method="post"><input name="value" value="captured-secret"></form><template><p>template</p></template><p>正文😀</p></body></html>';
+    const item = entry(raw, raw, 'text/html'); item.request.url = 'https://example.test/pages/document.html?q=1';
+    item.response.content.text = Buffer.from(raw).toString('base64'); item.response.content.encoding = 'base64';
+    const host = createHost(), ui = await openDOM(t, host.main, [item, item]);
     ui.click('.request-items [index="0"]', true);
+    const captured = JSON.stringify(ui.window.har.log.entries);
+    function checkGate(view, viewer, api) {
+        api.setMode('preview');
+        assert.equal(viewer.querySelector('iframe'), null, 'Selecting Preview must not create a browsing context or load page resources');
+        assert.match(viewer.querySelector('.body-html-consent').textContent, /安全提醒.*执行 HTML.*真实网站/);
+        const start = viewer.querySelector('.body-html-start');
+        assert.equal(start.textContent, '开始真实预览');
+        start.click();
+        const frame = viewer.querySelector('iframe');
+        view.window.dispatchEvent(new view.window.MessageEvent('message', { source: frame.contentWindow, data: { command: 'loadError', message: 'Untrusted preview message' } }));
+        assert.equal(view.query('.load-error'), null, 'Preview messages must not be mistaken for extension-host messages');
+        assert.equal(viewer.querySelector('.body-html-consent'), null);
+        assert.equal(viewer.querySelector('.body-note'), null);
+        const permissions = frame.getAttribute('sandbox').split(' ');
+        for (const permission of ['allow-scripts', 'allow-forms', 'allow-popups', 'allow-popups-to-escape-sandbox', 'allow-downloads', 'allow-modals']) assert.ok(permissions.includes(permission));
+        assert.ok(!permissions.includes('allow-same-origin'), 'Captured scripts must not gain access to the VS Code host');
+        assert.ok(!permissions.includes('allow-top-navigation'));
+        assert.equal(frame.referrerPolicy, 'no-referrer');
+        assert.doesNotMatch(frame.srcdoc, /Content-Security-Policy|default-src 'none'/);
+        for (const content of ['<script src="app.js">', 'window.injected=1', 'href="next.html"', 'onclick="window.clicked=1"', 'src="image.png"', 'action="submit"', '<template>', '正文😀']) assert.ok(frame.srcdoc.includes(content), content);
+        assert.match(frame.srcdoc, /^<!DOCTYPE html>/i);
+        assert.match(frame.srcdoc, /<base href="https:\/\/example.test\/pages\/document.html\?q=1">/);
+        assert.equal(api.body.text, raw);
+        assert.deepEqual(Array.from(api.body.bytes), Array.from(Buffer.from(raw)));
+        api.setMode('text'); assert.equal(frame.isConnected, false); assert.equal(api.getText(), raw);
+        api.setMode('preview');
+        assert.equal(viewer.querySelector('iframe'), null, 'Returning to Preview requires another explicit click');
+        start.click();
+        assert.equal(viewer.querySelector('iframe'), null, 'A stale confirmation button must not start a new preview');
+        viewer.querySelector('.body-html-start').click();
+        assert.ok(viewer.querySelector('iframe'));
+    }
     for (const source of sources) {
+        openBody(ui, source);
         const api = ui.window.bodyViewers[source];
         assert.equal(api.getMode(), 'code');
-        api.setMode('preview');
-        const frame = viewerFor(ui, source).querySelector('iframe');
-        assert.equal(frame.getAttribute('sandbox'), '');
-        assert.equal(frame.referrerPolicy, 'no-referrer');
-        assert.match(frame.srcdoc, /Content-Security-Policy/);
-        assert.match(frame.srcdoc, /default-src 'none'/);
-        assert.doesNotMatch(frame.srcdoc, /<script|<iframe|onclick|href=|evil\.test|http-equiv="refresh"/);
-        assert.match(frame.srcdoc, /正文/);
-        api.setMode('text'); assert.equal(api.getText(), raw);
+        assert.equal(viewerFor(ui, source).querySelector('iframe'), null);
+        checkGate(ui, viewerFor(ui, source), api);
+        ui.click('.subscript[data-open-source="' + source + '"]', true); await Promise.all(ui.pending);
+        const tab = await openDOM(t, host.panels.at(-1));
+        assert.equal(tab.window.bodyViewer.getMode(), 'preview');
+        assert.equal(tab.query('iframe'), null, 'Opening a standalone preview must not inherit authorization');
+        assert.ok(tab.query('.body-html-start'));
+        checkGate(tab, tab.query('#body-editor'), tab.window.bodyViewer);
     }
+    ui.click('.request-items [index="1"]');
+    for (const source of sources) {
+        ui.window.bodyViewers[source].setMode('preview');
+        assert.equal(viewerFor(ui, source).querySelector('iframe'), null, 'Selecting another request cannot inherit authorization');
+    }
+    assert.equal(JSON.stringify(ui.window.har.log.entries), captured);
+});
+
+test('HTML preview resolves recorded base URLs and preserves page-owned policies without touching source', async t => {
+    const ui = await openDOM(t, createHost().main, [entry()]);
+    const prepare = ui.window.HarBodyViewer.previewHTML;
+    const raw = '<!DOCTYPE html><html><head><base href="../assets/"><meta http-equiv="Content-Security-Policy" content="script-src https://cdn.example.test"><meta http-equiv="refresh" content="5;url=next.html"></head><body><script>console.log("test")</script></body></html>';
+    const result = prepare(raw, 'https://example.test/pages/document.html');
+    assert.match(result, /<base href="https:\/\/example.test\/assets\/">/);
+    assert.equal((result.match(/<base /g) || []).length, 1);
+    assert.match(result, /Content-Security-Policy/);
+    assert.match(result, /http-equiv="refresh"/);
+    assert.match(result, /<script>/);
+    for (const base of ['', undefined, 'invalid', 'file:///private/file.html']) assert.equal(prepare(raw, base), raw);
+    const baseLess = '<p>fragment</p>';
+    assert.ok(!prepare(baseLess, 'https://example.test/page').startsWith('<!DOCTYPE'), 'Do not change a recorded quirks-mode document to standards mode');
 });
 
 test('large binary Hex renders only visible rows; empty bodies and missing-library fallback remain usable', async t => {
