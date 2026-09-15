@@ -468,6 +468,7 @@ body {
 
 .inspector-panel.collapsed {
     flex: 0 0 34px;
+    min-height: 0;
 }
 
 .inspector-panel-header {
@@ -537,6 +538,34 @@ body {
 
 .inspector-status-badge {
     background: var(--vscode-charts-green);
+}
+
+.response-panel .inspector-protocol-badge,
+.response-panel .inspector-status-badge {
+    color: var(--inspector-response-foreground, var(--vscode-badge-foreground, #fff));
+    background: var(--inspector-response-background, var(--vscode-badge-background, #656565));
+}
+
+.response-panel[data-status-group="1xx"] {
+    --inspector-response-background: var(--vscode-charts-blue, #3794ff);
+}
+
+.response-panel[data-status-group="2xx"] {
+    --inspector-response-background: var(--vscode-charts-green, #4caf50);
+}
+
+.response-panel[data-status-group="3xx"] {
+    --inspector-response-background: var(--vscode-charts-yellow, #cca700);
+    --inspector-response-foreground: #202020;
+}
+
+.response-panel[data-status-group="4xx"] {
+    --inspector-response-background: var(--vscode-charts-orange, #d18616);
+    --inspector-response-foreground: #202020;
+}
+
+.response-panel[data-status-group="5xx"] {
+    --inspector-response-background: var(--vscode-charts-red, #f14c4c);
 }
 
 .inspector-panel-toggle {

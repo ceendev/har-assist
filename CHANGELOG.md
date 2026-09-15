@@ -2,6 +2,15 @@
 
 All notable changes to Har Assist are documented here.
 
+## 0.1.25
+
+- Remove the extra blank space below collapsed request and response headers by
+  overriding the expanded panel's minimum height only while collapsed.
+- Preserve expanded panel sizing, splitter dragging and the one-open-panel rule.
+- Color both response header badges by status class: blue for 1xx, green for 2xx,
+  yellow for 3xx, orange for 4xx, red for 5xx, and neutral for zero/unknown status.
+  Refresh the colors when selecting requests, including while collapsed.
+
 ## 0.1.24
 
 - Redesign the request overview with Reqable-style basic information and collapsible

@@ -12,6 +12,82 @@ const encodedEntry = (request, response, mime = 'text/plain') => {
     return item;
 };
 
+test('collapsed request and response panels reserve only their header, with no minimum-height blank row', async t => {
+    const ui = await openDOM(t, createHost().main, [entry()]);
+    ui.click('.request-items [index="0"]', true);
+    for (const source of sources) {
+        const panel = ui.query('.' + source + '-panel');
+        ui.click('.' + source + '-panel .inspector-panel-toggle');
+        const style = ui.window.getComputedStyle(panel);
+        const headerStyle = ui.window.getComputedStyle(panel.querySelector('.inspector-panel-header'));
+        assert.equal(panel.classList.contains('collapsed'), true);
+        assert.equal(style.flexBasis, headerStyle.flexBasis);
+        assert.equal(style.flexGrow, '0');
+        assert.equal(style.flexShrink, '0');
+        assert.equal(parseFloat(style.minHeight), 0, 'Expanded minimum height must not leave space below the collapsed header');
+        assert.equal(panel.querySelector('.inspector-panel-toggle').getAttribute('aria-expanded'), 'false');
+        ui.click('.' + source + '-panel .inspector-panel-toggle');
+        assert.equal(panel.classList.contains('collapsed'), false);
+        assert.equal(ui.window.getComputedStyle(panel).minHeight, '62px');
+        assert.equal(ui.window.getComputedStyle(panel.querySelector('.inspector-panel-content')).display, 'flex');
+    }
+    // Collapsing the remaining open panel must expand its partner, not hide both.
+    ui.click('.request-panel .inspector-panel-toggle');
+    ui.click('.response-panel .inspector-panel-toggle');
+    assert.equal(ui.query('.request-panel').classList.contains('collapsed'), false);
+    assert.equal(ui.query('.response-panel').classList.contains('collapsed'), true);
+    assert.equal(ui.window.document.querySelectorAll('.inspector-panel.collapsed').length, 1);
+});
+
+test('response badges follow status classes when switching requests, even while collapsed', async t => {
+    const cases = [
+        [200, '2xx', 'green'], [0, 'other'], [100, '1xx', 'blue'], [199, '1xx', 'blue'],
+        [201, '2xx', 'green'], [204, '2xx', 'green'], [299, '2xx', 'green'],
+        [300, '3xx', 'yellow'], [304, '3xx', 'yellow'], [399, '3xx', 'yellow'],
+        [400, '4xx', 'orange'], [404, '4xx', 'orange'], [499, '4xx', 'orange'],
+        [500, '5xx', 'red'], [503, '5xx', 'red'], [599, '5xx', 'red'],
+        [99, 'other'], [600, 'other'], [null, 'other'], [undefined, 'other'],
+        ['404', '4xx', 'orange'], ['invalid', 'other'], [200, '2xx', 'green']
+    ];
+    const entries = cases.map(([status]) => {
+        const item = entry();
+        item.response.status = status;
+        return item;
+    });
+    const ui = await openDOM(t, createHost().main, entries);
+    ui.click('.request-items [index="0"]', true);
+    const panel = ui.query('.response-panel');
+    const badge = panel.querySelector('.inspector-status-badge');
+    const protocol = panel.querySelector('.inspector-protocol-badge');
+    const requestProtocol = ui.query('.request-panel .inspector-protocol-badge');
+    const initialRequestBackground = ui.window.getComputedStyle(requestProtocol).backgroundColor;
+    for (const collapsed of [false, true]) {
+        if (collapsed) ui.click('.response-panel .inspector-panel-toggle');
+        for (const [index, [status, group, color]] of cases.entries()) {
+            ui.click('.request-items [index="' + index + '"]');
+            assert.equal(panel.classList.contains('collapsed'), collapsed);
+            assert.equal(panel.dataset.statusGroup, group, 'Status: ' + status);
+            assert.equal(badge.textContent, status == null ? '' : String(status));
+            const panelStyle = ui.window.getComputedStyle(panel);
+            const background = panelStyle.getPropertyValue('--inspector-response-background');
+            if (color) assert.ok(background.includes('--vscode-charts-' + color), 'Status: ' + status);
+            else assert.equal(background, '', 'Unknown status must reset to neutral, not retain the previous color');
+            assert.equal(panelStyle.getPropertyValue('--inspector-response-foreground').trim(), ['3xx', '4xx'].includes(group) ? '#202020' : '');
+            for (const indicator of [badge, protocol]) {
+                const style = ui.window.getComputedStyle(indicator);
+                assert.ok(style.background.includes('--inspector-response-background'));
+                assert.ok(style.background.includes('--vscode-badge-background'), 'Use a neutral fallback before selection or for unknown status');
+                assert.ok(style.color.includes('--inspector-response-foreground'));
+            }
+            assert.equal(ui.window.getComputedStyle(requestProtocol).backgroundColor, initialRequestBackground, 'Response status must not recolor the request header');
+            assert.equal(ui.window.selectedReq.obj.response.status, status, 'Status presentation must not alter HAR data');
+        }
+    }
+    ui.click('.inspector-close');
+    ui.click('.request-items [index="11"]', true);
+    assert.equal(panel.dataset.statusGroup, '4xx', 'Reopening the Inspector must use the newly selected status');
+});
+
 test('both Raw tabs use the shared read-only text/Hex controls without formatting or redaction', async t => {
     const body = '{"exact":9007199254740993,"text":"中😀<script>window.injected=1</script>"}';
     const item = entry(body, body);

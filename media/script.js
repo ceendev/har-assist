@@ -1067,6 +1067,7 @@ function selectReq(index) {
     $(".request-item.selected").removeClass("selected");
     $(".request-item[index='" + index + "']").addClass("selected");
     $(".inspector-method-badge").attr("type", selectedReq.method);
+    $(".response-panel").attr("data-status-group", selectedReq.statusGroup);
     resetInspectorCopyButton();
     $(".inspector-panel-url").attr("title", selectedReq.fullURL);
     $("*[data]:not([round])").each(function () {
