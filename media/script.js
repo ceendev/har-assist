@@ -305,7 +305,7 @@ function formatRawRequest(reqItem, content) {
     }
     if (content == null) {
         var payload = getBodyPayload("request", reqItem);
-        content = decodeResponseBody(payload, payload.mimeType);
+        content = decodeResponseBody(payload, payload.mimeType || "text/plain");
     }
     return lines.join("\n") + "\n\n" + content;
 }
@@ -323,7 +323,7 @@ function formatRawResponse(reqItem, content) {
     }
     if (content == null) {
         var payload = getBodyPayload("response", reqItem);
-        content = decodeResponseBody(payload, payload.mimeType);
+        content = decodeResponseBody(payload, payload.mimeType || "text/plain");
     }
     return lines.join("\n") + "\n\n" + (content || "");
 }

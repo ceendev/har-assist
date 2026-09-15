@@ -2,6 +2,11 @@
 
 All notable changes to Har Assist are documented here.
 
+## 0.1.22
+
+- Keep UTF-8 text readable in both complete-message Raw views when a Base64 HAR
+  body has no MIME type or Content-Type header, preserving its BOM and Hex bytes.
+
 ## 0.1.21
 
 - Correct both Raw tabs to offer exactly **文本** and **Hex**, showing the complete

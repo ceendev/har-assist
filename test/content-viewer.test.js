@@ -53,6 +53,24 @@ test('both Raw tabs use the shared read-only text/Hex controls without formattin
     assert.equal(JSON.stringify(ui.window.selectedReq.obj), captured);
 });
 
+test('Raw text decodes untyped Base64 as UTF-8 while Hex retains the entire message', async t => {
+    const body = '\uFEFF中文😀';
+    const item = encodedEntry(body, body);
+    delete item.request.postData.mimeType;
+    delete item.response.content.mimeType;
+    const ui = await openDOM(t, createHost().main, [item]);
+    ui.click('.request-items [index="0"]', true);
+    for (const source of sources) {
+        openRaw(ui, source);
+        const api = ui.window.rawViewers[source];
+        const expected = (source === 'request' ? 'POST /api HTTP/1.1' : 'HTTP/1.1 200 OK') + '\n\n' + body;
+        api.setMode('text');
+        assert.equal(api.getText(), expected);
+        api.setMode('hex');
+        assert.deepEqual(Array.from(api.body.bytes), Array.from(Buffer.from(expected)));
+    }
+});
+
 test('Raw viewers preserve modes, track selection and release inactive or closed instances', async t => {
     const ui = await openDOM(t, createHost().main, [encodedEntry('first request', 'first response'), encodedEntry('next request', 'next response')]);
     ui.click('.request-items [index="0"]', true);
