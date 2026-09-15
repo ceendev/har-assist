@@ -17,7 +17,8 @@ files that exceed VS Code's normal text-document size limit.
 
 - Open `.har` files directly with a first-class VS Code custom editor.
 - Filter by domain, application, protocol, method, content type, status, or text.
-- Inspect complete request URLs in a resizable request table.
+- Horizontally scroll complete request URLs in a resizable request table, with
+  duration and status pinned to the right and the header fixed vertically.
 - Keep the selected request URL in the top Inspector bar and drag horizontally
   to reveal long paths and query strings; hover the bar to reveal its copy
   button, with pointer-local success feedback.

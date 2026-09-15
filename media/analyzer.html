@@ -108,8 +108,8 @@
             <div role="columnheader">应用程序<span class="request-column-resizer" data-column-index="1" role="separator" aria-label="调整应用程序列宽" aria-orientation="vertical" tabindex="0"></span></div>
             <div role="columnheader">方法<span class="request-column-resizer" data-column-index="2" role="separator" aria-label="调整方法列宽" aria-orientation="vertical" tabindex="0"></span></div>
             <div role="columnheader">URL<span class="request-column-resizer" data-column-index="3" role="separator" aria-label="调整 URL 列宽" aria-orientation="vertical" tabindex="0"></span></div>
-            <div role="columnheader">耗时<span class="request-column-resizer" data-column-index="4" role="separator" aria-label="调整耗时列宽" aria-orientation="vertical" tabindex="0"></span></div>
-            <div role="columnheader">状态</div>
+            <div class="request-time-header" role="columnheader">耗时<span class="request-column-resizer" data-column-index="4" role="separator" aria-label="调整耗时列宽" aria-orientation="vertical" tabindex="0"></span></div>
+            <div class="request-status-header" role="columnheader">状态</div>
         </div>
         <div class="request-items container"></div>
     </div>
@@ -267,7 +267,7 @@
         <div class="request-id">1</div>
         <div class="application">未标注</div>
         <div class="method">POST</div>
-        <div class="request-url" title="https://example.com/example/endpoint">https://example.com/example/endpoint</div>
+        <div class="request-url" title="https://example.com/example/endpoint"><span class="request-url-text">https://example.com/example/endpoint</span></div>
         <div class="time detail-item">902ms</div>
         <div class="status detail-item"></div>
     </div>

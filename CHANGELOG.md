@@ -2,6 +2,15 @@
 
 All notable changes to Har Assist are documented here.
 
+## 0.1.19
+
+- Horizontally scroll the request list to read complete URLs, sizing the URL
+  column from visible rows rather than truncating addresses with an ellipsis.
+- Pin duration and status cells and their headers to the right, retaining row
+  highlighting, column resizing and the vertically sticky header.
+- Preserve horizontal position during keyboard request navigation, and resize
+  the scrollable grid when filters or fonts change.
+
 ## 0.1.18
 
 - Remove the Base64 byte-source hint and its row from Hex views in the inspector

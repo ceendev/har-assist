@@ -222,6 +222,15 @@ function resizeAdjacentColumns(widths, columnIndex, delta, minimumWidths) {
     return resizedWidths;
 }
 
+function resizeRequestColumns(widths, columnIndex, delta, minimumWidths) {
+    // The two pinned columns share a fixed total width. Other columns can grow
+    // the scrollable table, while URL never becomes narrower than its content.
+    if (columnIndex === 4) return resizeAdjacentColumns(widths, columnIndex, delta, minimumWidths);
+    var resized = widths.slice();
+    resized[columnIndex] = Math.max(minimumWidths[columnIndex], widths[columnIndex] + delta);
+    return resized;
+}
+
 function clampInspectorTableKeyWidth(width, tableWidth) {
     return Math.max(80, Math.min(Number(width) || 0, Math.max(80, Number(tableWidth) - 100)));
 }
@@ -425,6 +434,7 @@ function runSearch() {
     if (selectedIndex >= 0 && !visibleIndicies.includes(selectedIndex)) {
         closeInspector();
     }
+    updateRequestURLWidth();
 }
 
 function handleRequestNavigation(event) {
@@ -443,8 +453,19 @@ function handleRequestNavigation(event) {
     selectReq(visibleIndicies[position]);
     var selectedItem = $(".request-items .request-item[index='" + selectedIndex + "']").get(0);
     if (selectedItem) {
-        selectedItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        scrollRequestRowIntoView(selectedItem);
     }
+}
+
+function scrollRequestRowIntoView(row) {
+    var pane = document.querySelector(".request-list-pane");
+    var header = document.querySelector(".request-list-header");
+    var bounds = row.getBoundingClientRect();
+    var top = bounds.top - pane.getBoundingClientRect().top;
+    var headerHeight = header.getBoundingClientRect().height;
+    // Do not let scrollIntoView reset the user's horizontal URL position.
+    if (top < headerHeight) pane.scrollTop += top - headerHeight;
+    else if (top + bounds.height > pane.clientHeight) pane.scrollTop += top + bounds.height - pane.clientHeight;
 }
 
 function closeInspector() {
@@ -746,6 +767,19 @@ function setupInspectorResizer() {
     });
 }
 
+function updateRequestURLWidth() {
+    var layout = document.querySelector(".main-layout");
+    if (!layout) return;
+    var width = 160;
+    // Measure unwrapped spans with the actual VS Code font. Read all sizes
+    // before the single style write, and only include visible filtered rows.
+    document.querySelectorAll(".request-items .request-url-text").forEach(function (span) {
+        if (span.closest(".request-item").style.display === "none") return;
+        width = Math.max(width, Math.ceil(span.getBoundingClientRect().width) + 18);
+    });
+    layout.style.setProperty("--request-url-content-width", width + "px");
+}
+
 function setupRequestColumnResizers() {
     var header = document.querySelector(".request-list-header");
     var layout = document.querySelector(".main-layout");
@@ -753,6 +787,16 @@ function setupRequestColumnResizers() {
         return;
     }
     var minimumWidths = [42, 90, 60, 160, 60, 54];
+    var columnProperties = ["--request-id-width", "--request-application-width", "--request-method-width", "--request-url-user-width", "--request-time-width", "--request-status-width"];
+
+    if (layout.dataset.requestSizingBound !== "true") {
+        layout.dataset.requestSizingBound = "true";
+        window.addEventListener("resize", updateRequestURLWidth);
+        if (document.fonts) {
+            document.fonts.ready.then(updateRequestURLWidth);
+            document.fonts.addEventListener("loadingdone", updateRequestURLWidth);
+        }
+    }
 
     function getColumnWidths() {
         return Array.from(header.children).map(function (cell) {
@@ -760,16 +804,13 @@ function setupRequestColumnResizers() {
         });
     }
 
-    function applyColumnWidths(widths) {
-        var roundedWidths = widths.map(function (width) {
-            return Math.round(width * 10) / 10;
+    function applyColumnWidths(widths, columnIndex, delta) {
+        minimumWidths[3] = parseFloat(layout.style.getPropertyValue("--request-url-content-width")) || 160;
+        var resized = resizeRequestColumns(widths, columnIndex, delta, minimumWidths);
+        var changed = columnIndex === 4 ? [4, 5] : [columnIndex];
+        changed.forEach(function (index) {
+            layout.style.setProperty(columnProperties[index], Math.round(resized[index] * 10) / 10 + "px");
         });
-        layout.style.setProperty("--request-grid-columns", roundedWidths.map(function (width) {
-            return width + "px";
-        }).join(" "));
-        layout.style.setProperty("--request-grid-min-width", roundedWidths.reduce(function (total, width) {
-            return total + width;
-        }, 0) + "px");
     }
 
     document.querySelectorAll(".request-column-resizer").forEach(function (resizer) {
@@ -787,17 +828,19 @@ function setupRequestColumnResizers() {
             document.body.classList.add("resizing-columns");
 
             function handleMove(moveEvent) {
-                applyColumnWidths(resizeAdjacentColumns(startWidths, columnIndex, moveEvent.clientX - startX, minimumWidths));
+                applyColumnWidths(startWidths, columnIndex, moveEvent.clientX - startX);
             }
 
             function handleUp() {
                 document.body.classList.remove("resizing-columns");
                 window.removeEventListener("pointermove", handleMove);
                 window.removeEventListener("pointerup", handleUp);
+                window.removeEventListener("pointercancel", handleUp);
             }
 
             window.addEventListener("pointermove", handleMove);
             window.addEventListener("pointerup", handleUp);
+            window.addEventListener("pointercancel", handleUp);
         });
 
         resizer.addEventListener("keydown", function (event) {
@@ -806,7 +849,7 @@ function setupRequestColumnResizers() {
             }
             event.preventDefault();
             event.stopPropagation();
-            applyColumnWidths(resizeAdjacentColumns(getColumnWidths(), columnIndex, event.key == "ArrowLeft" ? -12 : 12, minimumWidths));
+            applyColumnWidths(getColumnWidths(), columnIndex, event.key == "ArrowLeft" ? -12 : 12);
         });
     });
 }
@@ -1424,7 +1467,8 @@ function addRequestGUIItem(entity) {
     } else {
         newItem.find(".method").text(entity.method);
     }
-    newItem.find(".request-url").text(entity.fullURL).attr("title", entity.fullURL);
+    newItem.find(".request-url").attr("title", entity.fullURL);
+    newItem.find(".request-url-text").text(entity.fullURL);
     newItem.appendTo(".request-items");
 }
 

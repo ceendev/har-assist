@@ -2,8 +2,13 @@
     --toolbar-height: 96px;
     --inspector-width: 42%;
     --splitter-width: 6px;
-    --request-grid-columns: 56px 150px 78px minmax(160px, 1fr) 72px 58px;
-    --request-grid-min-width: 560px;
+    --request-id-width: 56px;
+    --request-application-width: 150px;
+    --request-method-width: 78px;
+    --request-url-user-width: 160px;
+    --request-url-content-width: 160px;
+    --request-time-width: 72px;
+    --request-status-width: 58px;
 }
 
 body {
@@ -267,6 +272,9 @@ body {
 }
 
 .main-layout {
+    --request-url-width: max(var(--request-url-user-width), var(--request-url-content-width));
+    --request-grid-columns: var(--request-id-width) var(--request-application-width) var(--request-method-width) minmax(var(--request-url-width), 1fr) var(--request-time-width) var(--request-status-width);
+    --request-grid-min-width: calc(var(--request-id-width) + var(--request-application-width) + var(--request-method-width) + var(--request-url-width) + var(--request-time-width) + var(--request-status-width));
     position: fixed;
     top: var(--toolbar-height);
     left: 0;
@@ -288,17 +296,36 @@ body {
     overflow-y: auto;
 }
 
+.request-list-pane::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+.request-list-pane::-webkit-scrollbar-thumb {
+    background: var(--vscode-scrollbarSlider-background, #9998);
+}
+
+.request-list-pane::-webkit-scrollbar-thumb:hover {
+    background: var(--vscode-scrollbarSlider-hoverBackground, #777a);
+}
+
+.request-list-pane::-webkit-scrollbar-corner {
+    background: var(--vscode-editor-background, #fff);
+}
+
 .request-list-header {
     display: grid;
     grid-template-columns: var(--request-grid-columns);
+    box-sizing: border-box;
     flex: 0 0 36px;
     min-width: var(--request-grid-min-width);
     position: sticky;
     top: 0;
-    z-index: 1;
+    z-index: 4;
     align-items: center;
     border-bottom: 1px solid var(--vscode-editorGroup-border);
-    background: var(--vscode-editorGroupHeader-tabsBackground);
+    background-color: var(--vscode-editor-background, #fff);
+    background-image: linear-gradient(var(--vscode-editorGroupHeader-tabsBackground, #f3f3f3), var(--vscode-editorGroupHeader-tabsBackground, #f3f3f3));
     color: var(--vscode-descriptionForeground);
     font-size: 12px;
     user-select: none;
@@ -335,13 +362,38 @@ body {
     border-right: 0;
 }
 
+.request-list-header > .request-time-header,
+.request-list-header > .request-status-header,
+.request-item > .time,
+.request-item > .status {
+    position: sticky;
+    z-index: 2;
+    background-color: var(--vscode-editor-background, #fff);
+}
+
+.request-list-header > .request-time-header,
+.request-item > .time {
+    right: var(--request-status-width);
+    box-shadow: -1px 0 var(--vscode-editorGroup-border, #ccc);
+}
+
+.request-list-header > .request-status-header,
+.request-item > .status {
+    right: 0;
+}
+
+.request-list-header > .request-time-header,
+.request-list-header > .request-status-header {
+    background-image: inherit;
+}
+
 .container.request-items {
     position: relative;
-    flex: 1 1 auto;
+    flex: 1 0 auto;
     width: 100%;
     min-width: var(--request-grid-min-width);
     padding: 0;
-    min-height: calc(100% - 36px);
+    min-height: 0;
     overflow: visible;
 }
 
@@ -666,6 +718,7 @@ body {
 }
 
 .request-item {
+    --request-row-highlight: transparent;
     display: grid;
     grid-template-columns: var(--request-grid-columns);
     align-items: center;
@@ -677,14 +730,24 @@ body {
     border-bottom: 1px solid var(--vscode-editorGroup-border);
     user-select: none;
     cursor: pointer;
+    background-color: var(--request-row-highlight);
 }
 
 .request-item:hover {
-    background: var(--vscode-list-hoverBackground);
+    --request-row-highlight: var(--vscode-list-hoverBackground, #eeeeee);
 }
 
 .request-item.selected {
-    background: var(--vscode-list-inactiveSelectionBackground);
+    --request-row-highlight: var(--vscode-list-inactiveSelectionBackground, #dce9f8);
+}
+
+.request-item > .time,
+.request-item > .status {
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-image: linear-gradient(var(--request-row-highlight), var(--request-row-highlight));
 }
 
 .request-id,
@@ -724,6 +787,12 @@ body {
     text-align: left;
     font-family: var(--vscode-editor-font-family, monospace);
     color: var(--vscode-editor-foreground);
+    text-overflow: clip;
+}
+
+.request-url-text {
+    display: inline-block;
+    white-space: pre;
 }
 
 *[type="POST"] .method {
