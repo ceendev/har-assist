@@ -192,7 +192,7 @@ body {
     background: var(--vscode-button-background);
 }
 
-.json-body-viewer {
+.har-body-viewer {
     flex: 1 1 0;
     height: auto;
     min-height: 0;
@@ -861,13 +861,12 @@ table.stack {
     transition: line-height ease 0.2s;
 }
 
-/* Keep the open-tab action outside the editor's scroll area. Only text bodies
-   use this fitted layout; images and other previews retain their own scrolling. */
-.container.request-inspector .page.text-body {
+/* Keep the open-tab action outside the content's scroll area. */
+.container.request-inspector .page.fitted-body {
     overflow: hidden;
 }
 
-.text-body .body-section {
+.fitted-body .body-section {
     display: flex;
     flex-direction: column;
     flex: 1 1 0;
@@ -877,11 +876,11 @@ table.stack {
     overflow: hidden;
 }
 
-.text-body .body-viewer-error {
+.fitted-body .body-viewer-error {
     flex: 0 0 auto;
 }
 
-.text-body .body-section > .code-block {
+.fitted-body .body-section > .code-block {
     flex: 1 1 0;
     min-height: 0;
     overflow: auto;

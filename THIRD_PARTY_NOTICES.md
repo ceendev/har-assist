@@ -1,12 +1,11 @@
 # Third-party notices
 
-Har Assist distributes the unmodified full browser build of
-[JSONEditor](https://github.com/josdejong/jsoneditor), including its bundled
-dependencies. Their license and notice files, and package metadata identifying
-their versions and authors, are retained under `node_modules/`. In particular,
-JSONEditor is Apache-2.0 licensed and its embedded Ace editor is BSD-3-Clause
-licensed. Omitting the separate development/runtime source trees does not remove
-these notices.
+Har Assist bundles [CodeMirror 6](https://codemirror.net/), its selected language
+packages and supporting libraries (including Lezer, style-mod, crelt and
+w3c-keyname) into `media/body-viewer.bundle.js`. Their license files and package
+metadata identifying versions and authors are retained under `node_modules/`.
+CodeMirror and Lezer use the MIT license. The bundle is generated with esbuild;
+separate library source trees and development tooling are not shipped.
 
 [Codicons](https://github.com/microsoft/vscode-codicons) by Microsoft supplies the
 unmodified icon font and CSS. The icon font uses CC-BY-4.0 and the code uses MIT;
@@ -16,10 +15,6 @@ The following MIT-licensed components also retain their attribution here:
 
 - [jQuery 3.3.1](https://jquery.com/), (c) JS Foundation and other contributors.
   The original notice remains in `media/jquery.min.js`.
-- [Natural Sort 0.7.1](https://github.com/Bill4Time/javascript-natural-sort),
-  by Jim Palmer, based on the chunking idea from Dave Koelle. This component is
-  embedded in JSONEditor; its published source identifies the MIT license but
-  does not include a separate license file.
 
 ## MIT license
 
@@ -40,22 +35,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-## Color conversion
-
-The JSONEditor bundle also includes
-[@sphinxxxx/color-conversion](https://github.com/Sphinxxxx/color-conversion),
-by Joudee, Andreas Borgen and Michael Jackson. Its package declares the ISC
-license and does not include a separate license file:
-
-Permission to use, copy, modify, and/or distribute this software for any purpose
-with or without fee is hereby granted, provided that the above copyright notice
-and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
-REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
-FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
-INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
-LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
-OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
-PERFORMANCE OF THIS SOFTWARE.

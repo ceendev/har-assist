@@ -1,12 +1,14 @@
 /* eslint-env browser */
+/* global acquireVsCodeApi */
 (function () {
     "use strict";
     var payload = JSON.parse(document.getElementById("body-payload").textContent);
     var container = document.getElementById("body-editor");
     var editor;
     try {
-        editor = window.HarBodyViewer.mount(container, payload.text, payload.mimeType);
-        if (!editor) throw new Error("Unsupported body type");
+        window.HarBodyViewer.setHostApi(acquireVsCodeApi());
+        editor = window.HarBodyViewer.mount(container, payload.text, payload.mimeType, payload);
+        window.bodyViewer = editor;
     } catch (_) {
         container.textContent = "";
         var notice = document.createElement("p");

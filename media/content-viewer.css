@@ -1,0 +1,44 @@
+.body-viewer {
+    display: flex; flex-direction: column; min-width: 0; min-height: 0; width: 100%; height: 100%;
+    white-space: normal; font-family: var(--vscode-editor-font-family, monospace);
+    border: 1px solid var(--vscode-panel-border, #ccc); box-sizing: border-box;
+}
+.body-viewer-tools, .hex-controls, .body-image-controls {
+    flex: 0 0 auto; display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+    padding: 3px 6px; border-bottom: 1px solid var(--vscode-panel-border, #ddd);
+}
+.body-viewer button, .body-viewer input {
+    font: inherit; font-size: 12px; color: var(--vscode-editor-foreground, #333);
+    background: var(--vscode-input-background, #fff); border: 1px solid var(--vscode-input-border, #ccc);
+    border-radius: 3px; padding: 3px 6px;
+}
+.body-viewer button { cursor: pointer; }
+.body-viewer button:disabled { cursor: default; opacity: .5; }
+.body-viewer-tools button { border-color: transparent; background: transparent; }
+.body-viewer-tools .body-search { margin-left: auto; }
+.body-viewer [hidden] { display: none !important; }
+.body-viewer-tools button.selected { color: var(--vscode-tab-activeForeground, #0673cf); border-bottom-color: var(--vscode-focusBorder, #0673cf); border-radius: 0; }
+.body-viewer :focus-visible { outline: 1px solid var(--vscode-focusBorder, #0673cf); outline-offset: -1px; }
+.body-viewer-content { flex: 1 1 0; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.body-viewer-content > .cm-editor { flex: 1 1 0; min-height: 0; min-width: 0; font-size: var(--vscode-editor-font-size, 13px); }
+.body-note { flex: 0 0 auto; padding: 5px 8px; font-size: 11px; color: var(--vscode-descriptionForeground, #777); white-space: normal; }
+.body-html-preview { flex: 1 1 0; min-height: 0; width: 100%; border: 0; background: white; }
+.body-media { width: 100%; max-height: 100%; min-height: 0; }
+.body-image-scroll { flex: 1 1 0; min-height: 0; overflow: auto; cursor: grab; touch-action: none; }
+.body-image-stage { position: relative; margin: auto; }
+.body-image { position: absolute; top: 50%; left: 50%; max-width: none; }
+.hex-query { min-width: 80px; width: 160px; flex: 1 1 100px; }
+.hex-status { font-size: 11px; color: var(--vscode-descriptionForeground, #777); }
+.hex-header { flex: 0 0 auto; overflow: hidden; white-space: pre; padding: 4px 8px; font: 12px/22px monospace; }
+.hex-scroll { flex: 1 1 0; min-height: 0; overflow: auto; font: 12px/22px monospace; font-variant-ligatures: none; }
+.hex-spacer { position: relative; min-width: 650px; }
+.hex-rows { position: absolute; left: 8px; right: 0; }
+.hex-row { display: flex; gap: 16px; height: 22px; white-space: pre; }
+.hex-offset { color: var(--vscode-editorLineNumber-foreground, #888); width: 8ch; }
+.hex-values { display: flex; gap: 1ch; }
+.hex-byte { width: 2ch; cursor: text; }
+.hex-byte.selected { background: var(--vscode-editor-selectionBackground, #b7d7ff); }
+.hex-ascii { color: var(--vscode-descriptionForeground, #777); }
+html.body-tab, .body-tab body { height: 100%; margin: 0; }
+.body-tab body { padding: 12px; box-sizing: border-box; background: var(--vscode-editor-background, white); }
+.body-tab #body-editor { height: 100%; }

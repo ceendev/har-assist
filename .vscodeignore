@@ -13,20 +13,17 @@
 !media/script.js
 !media/style.css
 !media/jquery.min.js
-!media/body-viewer.js
-!media/body-viewer.css
+!media/body-viewer.bundle.js
+!media/content-viewer.css
 !media/body-panel.js
 
-# The full JSONEditor browser bundle includes Ace, JSON mode and its other
-# dependencies. Keep code mode; do not substitute the minimalist build.
-!node_modules/jsoneditor/dist/jsoneditor.min.js
-!node_modules/jsoneditor/dist/jsoneditor.min.css
-!node_modules/jsoneditor/dist/img/jsoneditor-icons.svg
+# CodeMirror and its selected languages are bundled above. Only the icon font
+# and CSS are loaded separately.
 !node_modules/@vscode/codicons/dist/codicon.css
 !node_modules/@vscode/codicons/dist/codicon.ttf
 
 # Preserve production dependency licenses, notices and version/author metadata,
-# including the components embedded in the prebuilt JSONEditor bundle.
+# including the components embedded in the CodeMirror bundle.
 !node_modules/**/LICENSE*
 !node_modules/**/NOTICE*
 !node_modules/*/package.json

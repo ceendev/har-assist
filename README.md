@@ -24,6 +24,16 @@ files that exceed VS Code's normal text-document size limit.
 - Open request and response details in a draggable split inspector.
 - Resize columns throughout the request list and inspector tables.
 - Collapse either the request or response inspector while keeping one visible.
+- View JSON, XML, HTML, JavaScript, CSS and plain text in read-only CodeMirror
+  controls; JSON is automatically indented without changing number tokens or keys.
+- Switch bodies to Hex with byte offsets, ASCII, byte search and selection/copy.
+  Base64 bodies use decoded bytes; text-only captures are explicitly labeled UTF-8
+  reconstructions, not original network bytes.
+- Preview images with zoom/pan/rotate, and play captured audio/video when the
+  content is complete and its codec is supported by VS Code.
+- Preview HTML in a sandbox with scripts, network resources and navigation
+  disabled. Preview sanitization does not change the original HAR/source view.
+- Double-click the fixed open-tab hint to use the same viewer in a separate tab.
 - Parse HAR data directly in the WebView, with available memory as the practical
   file-size limit.
 
@@ -42,14 +52,15 @@ Use Node.js 22 or later:
 npm ci
 npm run check
 npm run package
+npm run check:package
 ```
 
 The package command creates `har-assist.vsix`. Install it with VS Code's
 **Extensions: Install from VSIX...** command.
 
 GitHub Actions builds pushes and pull requests targeting `ceen` or `main`.
-Publishing a non-prerelease GitHub Release triggers Marketplace publication after
-the build succeeds. See [Publishing](PUBLISHING.md) for the release setup.
+Pushing a new package version automatically creates its tag/Release and publishes
+to Marketplace after source and VSIX tests succeed. See [Publishing](PUBLISHING.md).
 
 ## License and attribution
 

@@ -2,6 +2,17 @@
 
 All notable changes to Har Assist are documented here.
 
+## 0.1.16
+
+- Replace JSONEditor with a bundled, read-only CodeMirror 6 content viewer for
+  JSON, XML, HTML, JavaScript, CSS and plain text in the inspector and body tabs.
+- Add a virtualized Hex view with byte offsets, ASCII, byte search, selection and
+  clipboard support; preserve Base64 bytes and label text-derived UTF-8 bytes.
+- Add image zoom/pan/rotation, native audio/video controls and opt-in sandboxed
+  HTML preview without scripts, external resources or navigation.
+- Preserve original body payloads when opening tabs and switching display modes.
+- Format JSON without rounding large integers or discarding duplicate keys.
+
 ## 0.1.15
 
 - Package only the required browser bundles, UI assets and third-party notices,

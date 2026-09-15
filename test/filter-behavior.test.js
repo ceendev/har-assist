@@ -32,6 +32,7 @@ function createJQueryStub() {
 }
 
 const context = {
+	TextEncoder,
 	acquireVsCodeApi() { return { postMessage() {} }; },
 	atob(value) { return Buffer.from(value, 'base64').toString('binary'); },
 	console,

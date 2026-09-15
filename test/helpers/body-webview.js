@@ -16,9 +16,11 @@ function entry(requestText = '{"request":{"value":1}}', responseText = '{"respon
 	};
 }
 
-// Only VS Code's host API is replaced; HTML, scripts, CSS and JSONEditor are the shipped resources.
+// Only host/layout/media APIs unavailable in jsdom are replaced; runtime assets
+// (including CodeMirror) are the real shipped resources.
 function createHost() {
 	const panels = [];
+	const copiedTexts = [];
 	const uri = fsPath => ({ fsPath, toString: () => 'https://har.test/' + path.relative(root, fsPath).split(path.sep).join('/') });
 	const newPanel = () => {
 		const panel = { webview: { asWebviewUri: value => value, onDidReceiveMessage(handler) { this.handler = handler; }, postMessage: async () => true } };
@@ -26,10 +28,11 @@ function createHost() {
 		return panel;
 	};
 	const vscode = {
+		env: { clipboard: { writeText: async text => { copiedTexts.push(text); } } },
 		ViewColumn: { Beside: 2 },
 		Uri: { joinPath: (base, ...parts) => uri(path.resolve(base.fsPath, ...parts)) },
 		window: { createWebviewPanel(type, title, column, options) { const panel = newPanel(); panel.webview.options = options; return panel; } },
-		workspace: { openTextDocument() { throw new Error('Bodies must open in a JSONEditor WebView'); } }
+		workspace: { openTextDocument() { throw new Error('Bodies must open in a content WebView'); } }
 	};
 	const module = { exports: {} };
 	vm.runInNewContext(fs.readFileSync(path.join(root, 'extension.js'), 'utf8'), {
@@ -39,7 +42,7 @@ function createHost() {
 	module.exports.renderHarEditor(main, module.exports.createHarDocument(uri(path.join(root, 'fixture.har'))), {
 		extensionUri: uri(root), subscriptions: [], markup: fs.readFileSync(path.join(root, 'media/analyzer.html'), 'utf8')
 	});
-	return { main, panels };
+	return { main, panels, copiedTexts };
 }
 
 async function openDOM(t, panel, entries = []) {
@@ -62,11 +65,20 @@ async function openDOM(t, panel, entries = []) {
 			window.acquireVsCodeApi = () => ({ postMessage(message) { messages.push(message); pending.push(panel.webview.handler(message)); } });
 			window.fetch = async () => ({ ok: true, text: async () => JSON.stringify({ log: { entries } }) });
 			window.TextDecoder = TextDecoder;
+			window.TextEncoder = TextEncoder;
+			window.Range.prototype.getClientRects = () => [];
+			window.Range.prototype.getBoundingClientRect = () => ({ top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 });
+			window.HTMLMediaElement.prototype.pause = function () {};
+			window.HTMLMediaElement.prototype.load = function () {};
+			window.blobResources = new Map();
+			let blobId = 0;
+			window.URL.createObjectURL = blob => { const url = 'blob:https://har.test/' + ++blobId; window.blobResources.set(url, blob); return url; };
+			window.URL.revokeObjectURL = url => window.blobResources.delete(url);
 			window.HTMLElement.prototype.scrollIntoView = function () {};
 		}
 	});
 	t.after(() => {
-		if (dom.window.jsonEditors) dom.window.destroyBodyEditors();
+		if (dom.window.bodyViewers) dom.window.destroyBodyEditors();
 		dom.window.dispatchEvent(new dom.window.Event('pagehide'));
 		dom.window.close();
 		if (errors.length) throw new Error(errors.join('\n'));
@@ -75,6 +87,7 @@ async function openDOM(t, panel, entries = []) {
 	// jQuery schedules its ready callback after the load event.
 	await new Promise(resolve => setTimeout(resolve, 30));
 	const { window } = dom;
+	panel.webview.postMessage = async data => { window.dispatchEvent(new window.MessageEvent('message', { data })); return true; };
 	return {
 		window, messages, pending,
 		query: selector => window.document.querySelector(selector),

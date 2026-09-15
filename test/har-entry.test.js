@@ -35,6 +35,7 @@ function loadScript(consoleApi = console) {
 		acquireVsCodeApi() { return { postMessage() {} }; },
 		atob(value) { return Buffer.from(value, 'base64').toString('binary'); },
 		console: consoleApi,
+		TextEncoder,
 		document: {},
 		fetch() { throw new Error('fetch should not run in this unit test'); },
 		window: {
@@ -49,6 +50,7 @@ function loadScript(consoleApi = console) {
 }
 
 const context = loadScript();
+assert.strictEqual(context.formatHex('中😀'), '0000  E4 B8 AD F0 9F 98 80');
 const responseText = 'connection established';
 
 assert.doesNotThrow(() => {

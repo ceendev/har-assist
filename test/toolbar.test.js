@@ -52,11 +52,14 @@ async function createToolbar(t, entries) {
 	window.addEventListener('error', event => errors.push(event.error));
 	window.acquireVsCodeApi = () => ({ postMessage() {} });
 	window.TextDecoder = TextDecoder;
+	window.TextEncoder = TextEncoder;
+	window.Range.prototype.getClientRects = () => [];
+	window.Range.prototype.getBoundingClientRect = () => ({ top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 });
 	window.HTMLElement.prototype.scrollIntoView = function () {};
 	window.harSource = 'https://har.test/fixture.har';
 	window.fetch = async () => ({ ok: true, text: async () => JSON.stringify({ log: { entries } }) });
 	window.eval(jquery);
-	window.eval(fs.readFileSync(path.join(root, 'media/body-viewer.js'), 'utf8'));
+	window.eval(fs.readFileSync(path.join(root, 'media/body-viewer.bundle.js'), 'utf8'));
 	window.eval(script);
 	const loaded = new Promise((resolve, reject) => {
 		const load = window.loadHAR;

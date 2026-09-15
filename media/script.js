@@ -5,6 +5,7 @@ var selectedIndex = -1;
 var visibleIndicies = [];
 
 const vscode = acquireVsCodeApi();
+if (window.HarBodyViewer) window.HarBodyViewer.setHostApi(vscode);
 
 function getHeaderValue(headers, name) {
     var header = (Array.isArray(headers) ? headers : []).find(function (entry) {
@@ -182,7 +183,8 @@ function decodeResponseBody(responseContent, mimeType) {
     if (responseContent.encoding != "base64") {
         return text;
     }
-    var binary = atob(text);
+    var binary;
+    try { binary = atob(text); } catch (_) { return text; }
     var contentGroup = getContentGroup(mimeType);
     if (["image", "media", "binary"].includes(contentGroup) || typeof TextDecoder == "undefined") {
         return binary;
@@ -311,22 +313,10 @@ function formatRawResponse(reqItem, content) {
 }
 
 function formatHex(text) {
-    var bytes = [];
-    var source = String(text || "");
-    for (var i = 0; i < source.length; i++) {
-        var code = source.charCodeAt(i);
-        if (code < 128) {
-            bytes.push(code);
-        } else {
-            var encoded = unescape(encodeURIComponent(source.charAt(i)));
-            for (var byteIndex = 0; byteIndex < encoded.length; byteIndex++) {
-                bytes.push(encoded.charCodeAt(byteIndex));
-            }
-        }
-    }
+    var bytes = new TextEncoder().encode(String(text || ""));
     var lines = [];
     for (var offset = 0; offset < bytes.length; offset += 16) {
-        var lineBytes = bytes.slice(offset, offset + 16);
+        var lineBytes = Array.from(bytes.subarray(offset, offset + 16));
         lines.push(offset.toString(16).toUpperCase().padStart(4, "0") + "  " + lineBytes.map(function (byte) {
             return byte.toString(16).toUpperCase().padStart(2, "0");
         }).join(" "));
@@ -346,10 +336,17 @@ function renderRawViews() {
         return;
     }
     $(".raw-code").each(function () {
+        // Do not lay out megabytes of invisible raw text behind the active body
+        // viewer. Render it on demand when the user selects the Raw tab.
+        if (!$(this).closest(".page").hasClass("show")) {
+            this.textContent = "";
+            return;
+        }
         var source = $(this).attr("data-raw-source");
         var raw = source == "request" ? selectedReq.rawRequest : selectedReq.rawResponse;
         var mode = $(this).attr("data-raw-mode") || "text";
-        $(this).html((mode == "hex" ? formatHex(raw) : raw).toString().toHtmlEntities());
+        $(this).attr("title", mode == "hex" ? "根据 HAR 中重建的 HTTP 文本按 UTF-8 编码；不是原始传输字节。响应体原始字节请使用响应体中的 Hex。" : "");
+        $(this).text(mode == "hex" ? formatHex(raw) : raw);
     });
 }
 
@@ -901,6 +898,7 @@ function setupGUI() {
         $(this).addClass("selected");
         panel.find(".page").removeClass("show");
         panel.find(".page[name='" + $(this).attr("name") + "']").addClass("show");
+        renderRawViews();
     });
 
     $(".inspector-panel-toggle").off().on("click", function () {
@@ -1085,15 +1083,16 @@ function selectReq(index) {
     });
 
     // Run after the generic field visibility updates so they cannot reveal the old text view.
-    renderJSONBodyViews();
+    renderBodyViews();
     $(".open-new-tab").off().on("dblclick", function () {
         var source = $(this).attr("data-open-source") || "response";
-        var text = source == "request" ? selectedReq.requestBodyRaw : selectedReq.responseBodyRaw;
-        var mime = source == "request" ? selectedReq.requestBodyMime : selectedReq.mimeType;
+        var payload = getBodyPayload(source);
         vscode.postMessage({
             action: "openNewTab",
-            text: text || "",
-            mimeType: mime || "",
+            text: payload.text,
+            mimeType: payload.mimeType,
+            encoding: payload.encoding,
+            mode: bodyViewers[source] && bodyViewers[source].getMode(),
             source: source
         });
     });
@@ -1201,39 +1200,48 @@ function format(text, mimeType) {
     }
 }
 
-var jsonEditors = { request: null, response: null };
+var bodyViewers = { request: null, response: null };
+
+function getBodyPayload(source) {
+    var request = selectedReq && selectedReq.obj.request || {};
+    var response = selectedReq && selectedReq.obj.response || {};
+    var record = source == "request" ? request.postData || {} : response.content || {};
+    var header = getHeaderValue(source == "request" ? request.headers : response.headers, "content-type");
+    var mime = record.mimeType || header || "";
+    var charset = /charset\s*=\s*["']?([^;\s"']+)/i.exec(header);
+    if (charset && !/charset\s*=/i.test(mime)) mime += "; charset=" + charset[1];
+    return { text: String(record.text == null ? "" : record.text), mimeType: mime, encoding: record.encoding || "" };
+}
 
 function destroyBodyEditors() {
-    Object.keys(jsonEditors).forEach(function (source) {
-        if (jsonEditors[source]) jsonEditors[source].destroy();
-        jsonEditors[source] = null;
+    Object.keys(bodyViewers).forEach(function (source) {
+        if (bodyViewers[source]) bodyViewers[source].destroy();
+        bodyViewers[source] = null;
     });
 }
 
-function renderJSONBodyViews() {
+function renderBodyViews() {
     destroyBodyEditors();
-    $(".json-body-viewer").each(function () {
+    $(".har-body-viewer").each(function () {
         var viewer = this;
-        var source = viewer.getAttribute("data-json-source");
-        var raw = source == "request" ? selectedReq && selectedReq.requestBodyRaw : selectedReq && selectedReq.responseBodyRaw;
-        var mime = source == "request" ? selectedReq && selectedReq.requestBodyMime : selectedReq && selectedReq.mimeType;
+        var source = viewer.getAttribute("data-body-source");
+        var payload = getBodyPayload(source);
         viewer.innerHTML = "";
         viewer.hidden = true;
         var textBlock = source == "request" ? document.querySelector(".request-body-text") : document.querySelector(".response-panel .code-block.shorten");
         var notice = viewer.parentElement.querySelector(".body-viewer-error");
         var openAction = viewer.parentElement.querySelector(".open-new-tab");
-        var body = window.HarBodyViewer.describe(raw, mime);
-        var hasTextBody = body.textual && body.text.length > 0;
-        viewer.closest(".page").classList.toggle("text-body", hasTextBody);
+        var hasBody = payload.text.length > 0;
+        viewer.closest(".page").classList.toggle("fitted-body", hasBody);
         // Clear jQuery's cached display value when returning from an empty body,
         // so the fitted flex layout can fill the panel again.
-        if (hasTextBody) viewer.parentElement.style.display = "";
+        if (hasBody) viewer.parentElement.style.display = "";
         notice.hidden = true;
-        openAction.hidden = !body.textual || !body.text.length;
-        if (selectedReq && body.text.length && body.textual) {
+        openAction.hidden = !hasBody;
+        if (selectedReq && hasBody) {
             viewer.hidden = false;
             try {
-                jsonEditors[source] = window.HarBodyViewer.mount(viewer, raw, mime);
+                bodyViewers[source] = window.HarBodyViewer.mount(viewer, payload.text, payload.mimeType, payload);
             } catch (error) {
                 viewer.textContent = "";
                 viewer.hidden = true;
@@ -1241,8 +1249,8 @@ function renderJSONBodyViews() {
             }
         }
         if (textBlock) {
-            textBlock.hidden = !viewer.hidden || !body.textual;
-            if (!textBlock.hidden) textBlock.textContent = body.text;
+            textBlock.hidden = !viewer.hidden || !hasBody;
+            textBlock.textContent = textBlock.hidden ? "" : payload.text;
         }
     });
 }

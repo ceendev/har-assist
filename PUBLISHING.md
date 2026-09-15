@@ -55,15 +55,15 @@ published version cannot be reused; increment the version for every release.
 
 ## Package contents and checks
 
-`.vscodeignore` is a runtime allowlist. JSONEditor's full `jsoneditor.min.js`
-already embeds Ace and the other libraries needed by the viewer. Ship that
-bundle, its CSS/icons, and the Codicons CSS/font, not the separate Ace builds or
-the JSONEditor examples, source and alternate bundles. Keep dependency license,
-notice and package metadata files for attribution. Do not replace the full bundle
-with the minimalist build, which lacks the requested code view.
+`.vscodeignore` is a runtime allowlist. `npm run build` bundles the content viewer,
+CodeMirror and only the required languages into `media/body-viewer.bundle.js`.
+The generated bundle is ignored by Git and rebuilt by `npm run check` and VSCE's
+`vscode:prepublish` hook. Ship it with the viewer CSS and Codicons CSS/font, not
+library source trees or development tooling. Keep dependency license, notice and
+package metadata files for attribution. JSONEditor/Ace are no longer dependencies.
 
 `npm run check:package` extracts the actual VSIX into a temporary directory and
-runs the body-viewer tests using only its packaged runtime resources. It also
+runs the content-viewer tests using only its packaged runtime resources. It also
 checks CSS image/font references, licenses, and size budgets (1 MiB compressed,
 3 MiB installed). Both publishing workflows run this check before uploading.
 The check requires `unzip`, available on the Ubuntu runners and macOS.

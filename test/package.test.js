@@ -24,9 +24,8 @@ test('the actual VSIX stays lean and its isolated body viewers remain functional
 	await run('unzip', ['-q', vsix, '-d', temp]);
 	const extensionRoot = path.join(temp, 'extension');
 	const bundledAssets = new Set([
-		'node_modules/jsoneditor/dist/jsoneditor.min.js',
-		'node_modules/jsoneditor/dist/jsoneditor.min.css',
-		'node_modules/jsoneditor/dist/img/jsoneditor-icons.svg',
+        'media/body-viewer.bundle.js',
+        'media/content-viewer.css',
 		'node_modules/@vscode/codicons/dist/codicon.css',
 		'node_modules/@vscode/codicons/dist/codicon.ttf'
 	]);
@@ -52,7 +51,7 @@ test('the actual VSIX stays lean and its isolated body viewers remain functional
 		}
 	}
 	assert.ok(expanded < 3 * 1024 * 1024, 'VSIX exceeds the 3 MiB installed size budget');
-	for (const file of [...bundledAssets, 'LICENSE.md', 'THIRD_PARTY_NOTICES.md', 'node_modules/jsoneditor/LICENSE', 'node_modules/jsoneditor/NOTICE', 'node_modules/ace-builds/LICENSE', 'node_modules/@vscode/codicons/LICENSE', 'node_modules/@vscode/codicons/LICENSE-CODE']) {
+	for (const file of [...bundledAssets, 'LICENSE.md', 'THIRD_PARTY_NOTICES.md', 'node_modules/@codemirror/view/LICENSE', 'node_modules/@codemirror/state/LICENSE', 'node_modules/@vscode/codicons/LICENSE', 'node_modules/@vscode/codicons/LICENSE-CODE']) {
 		assert.ok(fs.existsSync(path.join(extensionRoot, file)), 'Missing runtime asset or license: ' + file);
 	}
 	const manifest = JSON.parse(fs.readFileSync(path.join(extensionRoot, 'package.json'), 'utf8'));
@@ -62,7 +61,7 @@ test('the actual VSIX stays lean and its isolated body viewers remain functional
 	// Start an independent runner; inheriting the parent test context can cause
 	// Node to skip the child suite silently instead of reporting its failures.
 	delete childEnv.NODE_TEST_CONTEXT;
-	const { stdout } = await run(process.execPath, ['--test', '--test-reporter=tap', 'test/body-viewer.test.js'], {
+	const { stdout } = await run(process.execPath, ['--test', '--test-reporter=tap', 'test/content-viewer.test.js'], {
 		cwd: root,
 		env: childEnv,
 		timeout: 120000
