@@ -5,7 +5,7 @@ const { EditorView, lineNumbers, keymap, highlightActiveLineGutter } = require('
 const { foldGutter, foldKeymap, foldAll, unfoldAll, syntaxHighlighting, HighlightStyle } = require('@codemirror/language');
 const { tags } = require('@lezer/highlight');
 const { defaultKeymap } = require('@codemirror/commands');
-const { search, searchKeymap, openSearchPanel } = require('@codemirror/search');
+const { search, searchKeymap, openSearchPanel, searchPanelOpen } = require('@codemirror/search');
 const { json } = require('@codemirror/lang-json');
 const { xml } = require('@codemirror/lang-xml');
 const { html } = require('@codemirror/lang-html');
@@ -159,13 +159,20 @@ function mount(container, text, mimeType, options = {}) {
     function setMode(next) {
         if (destroyed || !buttons.has(next)) return;
         disposeContent(); mode = next; container.dataset.mode = mode;
-        searchButton.hidden = mode === 'hex' || mode === 'preview';
+        searchButton.hidden = mode === 'preview';
+        searchButton.setAttribute('aria-expanded', 'false');
         for (const [key, button] of buttons) { button.classList.toggle('selected', key === mode); button.setAttribute('aria-pressed', String(key === mode)); }
-        if (mode === 'hex') { hex = mountHex(content, body, copyText); return; }
+        if (mode === 'hex') {
+            hex = mountHex(content, body, copyText, open => searchButton.setAttribute('aria-expanded', String(open)));
+            return;
+        }
         if (mode === 'preview') { preview(); return; }
         let value = body.text;
         const extensions = [EditorState.readOnly.of(true), EditorView.editable.of(false), lineNumbers(), highlightActiveLineGutter(),
-            theme, search({ top: true }), keymap.of([...searchKeymap, ...foldKeymap, ...defaultKeymap]), EditorView.contentAttributes.of({ 'aria-label': '只读内容', tabindex: '0' })];
+            theme, search({ top: true }),
+            EditorState.phrases.of({ Find: '查找', next: '下一个', previous: '上一个', all: '全部', 'match case': '区分大小写', regexp: '正则', 'by word': '全字匹配', close: '关闭查找' }),
+            EditorView.updateListener.of(update => searchButton.setAttribute('aria-expanded', String(searchPanelOpen(update.state)))),
+            keymap.of([...searchKeymap, ...foldKeymap, ...defaultKeymap]), EditorView.contentAttributes.of({ 'aria-label': '只读内容', tabindex: '0' })];
         if (mode === 'code') {
             if (body.json) { if (formatted == null) formatted = prettyJSON(body.text); value = formatted; }
             const language = { json, xml, html, javascript, css }[body.language];
@@ -178,7 +185,7 @@ function mount(container, text, mimeType, options = {}) {
         button.addEventListener('click', () => setMode(key)); tools.append(button); buttons.set(key, button);
     }
     const searchButton = node('button', 'body-search', '查找'); searchButton.type = 'button';
-    searchButton.addEventListener('click', () => { if (editor) openSearchPanel(editor); }); tools.append(searchButton);
+    searchButton.addEventListener('click', () => { if (editor) openSearchPanel(editor); else if (hex) hex.openSearch(); }); tools.append(searchButton);
     const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (editor) editor.requestMeasure(); }) : null;
     if (observer) observer.observe(content);
     const initial = body.textual ? (body.language === 'text' ? 'text' : 'code') : body.preview ? 'preview' : 'hex';

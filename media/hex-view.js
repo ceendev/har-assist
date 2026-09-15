@@ -1,6 +1,6 @@
 // Virtualized byte view: only visible rows are rendered; selection uses offsets.
 /* global ResizeObserver */
-function mountHex(parent, body, copyText) {
+function mountHex(parent, body, copyText, onSearchOpenChange = () => {}) {
     if (!body.bytes) throw new Error('Bytes are required for Hex');
     const bytes = body.bytes, doc = parent.ownerDocument;
     const node = (tag, className, text) => {
@@ -9,12 +9,15 @@ function mountHex(parent, body, copyText) {
         return el;
     };
     const controls = node('div', 'hex-controls');
+    controls.hidden = true; controls.setAttribute('role', 'search'); controls.setAttribute('aria-label', '查找十六进制字节');
     const query = node('input', 'hex-query');
     query.placeholder = '查找字节，如 FF 00 4A'; query.setAttribute('aria-label', '查找十六进制字节');
     const find = node('button', '', '查找下一个');
     const copy = node('button', '', '复制所选字节'); copy.disabled = true;
     const status = node('span', 'hex-status'); status.setAttribute('role', 'status');
-    controls.append(query, find, copy, status);
+    const close = node('button', 'hex-search-close', '×');
+    close.type = 'button'; close.setAttribute('aria-label', '关闭查找'); close.title = '关闭查找 (Esc)';
+    controls.append(query, find, copy, status, close);
     const header = node('div', 'hex-header', '偏移地址    十六进制字节                                      ASCII');
     const viewport = node('div', 'hex-scroll'); viewport.tabIndex = 0;
     viewport.setAttribute('aria-label', '十六进制数据；点击字节选择，Shift 点击选择范围');
@@ -24,6 +27,25 @@ function mountHex(parent, body, copyText) {
     const height = Math.min(totalRows * rowHeight, 8000000);
     spacer.style.height = height + 'px';
     let start = -1, end = -1, cursor = -1, anchor = 0, destroyed = false, searchId = 0;
+    function openSearch() {
+        if (destroyed) return;
+        controls.hidden = false; onSearchOpenChange(true);
+        query.focus(); query.select(); render();
+    }
+    function closeSearch() {
+        if (destroyed) return;
+        searchId++; controls.hidden = true; onSearchOpenChange(false);
+        viewport.focus(); render();
+    }
+    function searchKeydown(event) {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
+            event.preventDefault(); event.stopPropagation(); openSearch();
+        } else if (event.key === 'Escape' && !controls.hidden) {
+            event.preventDefault(); event.stopPropagation(); closeSearch();
+        }
+    }
+    parent.addEventListener('keydown', searchKeydown);
+    close.addEventListener('click', closeSearch);
     function firstRow() {
         const visible = Math.max(1, Math.floor(viewport.clientHeight / rowHeight));
         return Math.min(totalRows - 1, Math.floor(viewport.scrollTop / Math.max(1, height - viewport.clientHeight) * Math.max(0, totalRows - visible)));
@@ -119,7 +141,10 @@ function mountHex(parent, body, copyText) {
     render();
     const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(render) : null;
     if (observer) observer.observe(viewport);
-    return { destroy() { destroyed = true; searchId++; if (observer) observer.disconnect(); }, reveal, select };
+    return {
+        destroy() { destroyed = true; searchId++; parent.removeEventListener('keydown', searchKeydown); if (observer) observer.disconnect(); },
+        reveal, select, openSearch, closeSearch
+    };
 }
 
 module.exports = { mountHex };

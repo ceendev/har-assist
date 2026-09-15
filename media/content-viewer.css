@@ -21,13 +21,55 @@
 .body-viewer :focus-visible { outline: 1px solid var(--vscode-focusBorder, #0673cf); outline-offset: -1px; }
 .body-viewer-content { flex: 1 1 0; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
 .body-viewer-content > .cm-editor { flex: 1 1 0; min-height: 0; min-width: 0; font-size: var(--vscode-editor-font-size, 13px); }
+/* Override CodeMirror's built-in light gradients as well as its input colors.
+   VS Code updates these variables live, including in standalone body tabs. */
+body.vscode-dark .body-viewer, body.vscode-high-contrast .body-viewer { color-scheme: dark; }
+body.vscode-light .body-viewer, body.vscode-high-contrast-light .body-viewer { color-scheme: light; }
+.body-viewer .cm-editor .cm-panels, .body-viewer .hex-controls {
+    color: var(--vscode-editorWidget-foreground, var(--vscode-editor-foreground, #333));
+    background: var(--vscode-editorWidget-background, var(--vscode-editor-background, #fff));
+    border-color: var(--vscode-editorWidget-border, var(--vscode-panel-border, #ccc));
+}
+.body-viewer .cm-editor .cm-search, .body-viewer .hex-controls {
+    position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px;
+    padding: 4px 32px 4px 6px; font: 12px var(--vscode-font-family, sans-serif);
+}
+.body-viewer .cm-editor .cm-search input, .body-viewer .cm-editor .cm-search button,
+.body-viewer .cm-editor .cm-search label { margin: 0; font: inherit; }
+.body-viewer .cm-editor .cm-search .cm-textfield, .body-viewer .hex-query {
+    min-width: 80px; width: 160px; flex: 1 1 120px; box-sizing: border-box;
+    color: var(--vscode-input-foreground, var(--vscode-editor-foreground, #333));
+    background: var(--vscode-input-background, #fff);
+    border: 1px solid var(--vscode-input-border, var(--vscode-contrastBorder, #888));
+    border-radius: 3px; padding: 3px 6px;
+}
+.body-viewer .cm-search input::placeholder, .body-viewer .hex-query::placeholder { color: var(--vscode-input-placeholderForeground, #777); opacity: 1; }
+.body-viewer .cm-editor .cm-search .cm-button, .body-viewer .hex-controls button {
+    color: var(--vscode-button-secondaryForeground, var(--vscode-editor-foreground, #333));
+    background: var(--vscode-button-secondaryBackground, var(--vscode-input-background, #eee));
+    background-image: none;
+    border: 1px solid var(--vscode-button-border, var(--vscode-contrastBorder, transparent));
+    border-radius: 3px; padding: 3px 6px; white-space: nowrap;
+}
+.body-viewer .cm-editor .cm-search .cm-button:hover, .body-viewer .hex-controls button:hover {
+    background: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground, #ddd));
+}
+.body-viewer .cm-editor .cm-search label { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.body-viewer .cm-editor .cm-search input[type="checkbox"] { margin: 0; padding: 0; accent-color: var(--vscode-focusBorder, #007acc); }
+.body-viewer .cm-editor .cm-search button[name="close"], .body-viewer .hex-controls .hex-search-close {
+    position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; padding: 0; margin: 0;
+    color: var(--vscode-icon-foreground, var(--vscode-editor-foreground, #333));
+    background: transparent; border: 1px solid transparent; font: 18px/20px sans-serif;
+}
+.body-viewer .cm-editor .cm-search button[name="close"]:hover, .body-viewer .hex-controls .hex-search-close:hover {
+    background: var(--vscode-toolbar-hoverBackground, #ddd);
+}
 .body-note { flex: 0 0 auto; padding: 5px 8px; font-size: 11px; color: var(--vscode-descriptionForeground, #777); white-space: normal; }
 .body-html-preview { flex: 1 1 0; min-height: 0; width: 100%; border: 0; background: white; }
 .body-media { width: 100%; max-height: 100%; min-height: 0; }
 .body-image-scroll { flex: 1 1 0; min-height: 0; overflow: auto; cursor: grab; touch-action: none; }
 .body-image-stage { position: relative; margin: auto; }
 .body-image { position: absolute; top: 50%; left: 50%; max-width: none; }
-.hex-query { min-width: 80px; width: 160px; flex: 1 1 100px; }
 .hex-status { font-size: 11px; color: var(--vscode-descriptionForeground, #777); }
 .hex-header { flex: 0 0 auto; overflow: hidden; white-space: pre; padding: 4px 8px; font: 12px/22px monospace; }
 .hex-scroll { flex: 1 1 0; min-height: 0; overflow: auto; font: 12px/22px monospace; font-variant-ligatures: none; }

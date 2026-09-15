@@ -88,6 +88,116 @@ test('response badges follow status classes when switching requests, even while 
     assert.equal(panel.dataset.statusGroup, '4xx', 'Reopening the Inspector must use the newly selected status');
 });
 
+test('text/code search uses themed readable controls and still finds content in both bodies and new tabs', async t => {
+    const host = createHost(), ui = await openDOM(t, host.main, [entry('{"a":"needle","b":"needle"}', '{"a":"needle","b":"needle"}')]);
+    ui.click('.request-items [index="0"]', true);
+    function checkSearch(view, viewer, api) {
+        // jsdom does not apply CodeMirror's generated selector specificity
+        // correctly. Check the shipped override rules here; resolved theme
+        // colors and layout are also verified in Chromium.
+        const rules = Array.from(view.window.document.styleSheets).flatMap(sheet => Array.from(sheet.cssRules));
+        const themed = selector => rules.find(rule => rule.selectorText && rule.selectorText.split(',').map(s => s.trim()).includes(selector)).style;
+        const buttonStyle = themed('.body-viewer .cm-editor .cm-search .cm-button');
+        assert.equal(buttonStyle.backgroundImage || buttonStyle.getPropertyValue('background-image'), 'none');
+        assert.ok(buttonStyle.color.includes('--vscode-button-secondaryForeground'));
+        assert.ok(buttonStyle.background.includes('--vscode-button-secondaryBackground'));
+        const inputStyle = themed('.body-viewer .cm-editor .cm-search .cm-textfield');
+        assert.ok(inputStyle.color.includes('--vscode-input-foreground'));
+        assert.ok(inputStyle.background.includes('--vscode-input-background'));
+        assert.ok(themed('.body-viewer .cm-editor .cm-panels').background.includes('--vscode-editorWidget-background'));
+        for (const mode of ['code', 'text']) {
+            api.setMode(mode);
+            const original = api.getText(), button = viewer.querySelector('.body-search');
+            assert.equal(button.hidden, false);
+            assert.equal(button.getAttribute('aria-expanded'), 'false');
+            assert.equal(viewer.querySelector('.cm-search'), null);
+            button.click();
+            assert.equal(button.getAttribute('aria-expanded'), 'true');
+            const panel = viewer.querySelector('.cm-search'), input = panel.querySelector('[name="search"]');
+            assert.equal(input.placeholder, '查找');
+            assert.equal(panel.querySelector('[name="replace"]'), null, 'Search must remain read-only');
+            assert.deepEqual(Array.from(panel.querySelectorAll('.cm-button'), el => el.textContent), ['下一个', '上一个', '全部']);
+            input.value = 'needle'; input.dispatchEvent(new view.window.Event('change', { bubbles: true }));
+            panel.querySelector('[name="next"]').click();
+            const first = api.editor.state.selection.main;
+            assert.equal(api.editor.state.sliceDoc(first.from, first.to), 'needle');
+            panel.querySelector('[name="next"]').click();
+            assert.notEqual(api.editor.state.selection.main.from, first.from);
+            panel.querySelector('[name="prev"]').click();
+            assert.equal(api.editor.state.selection.main.from, first.from);
+            panel.querySelector('[name="close"]').click();
+            assert.equal(viewer.querySelector('.cm-search'), null);
+            assert.equal(button.getAttribute('aria-expanded'), 'false');
+            assert.equal(api.getText(), original);
+        }
+    }
+    for (const source of sources) {
+        openBody(ui, source);
+        checkSearch(ui, viewerFor(ui, source), ui.window.bodyViewers[source]);
+        ui.click('.subscript[data-open-source="' + source + '"]', true);
+        await Promise.all(ui.pending);
+        const tab = await openDOM(t, host.panels.at(-1));
+        checkSearch(tab, tab.query('#body-editor'), tab.window.bodyViewer);
+    }
+});
+
+test('Hex search is hidden until requested, closes without losing selection, and works in bodies, Raw and new tabs', async t => {
+    const host = createHost(), ui = await openDOM(t, host.main, [entry('needle needle', 'needle needle', 'text/plain')]);
+    ui.click('.request-items [index="0"]', true);
+    async function checkSearch(view, viewer, api) {
+        api.setMode('hex');
+        const original = Array.from(api.body.bytes), controls = viewer.querySelector('.hex-controls');
+        const button = viewer.querySelector('.body-search'), query = viewer.querySelector('.hex-query');
+        const viewport = viewer.querySelector('.hex-scroll');
+        const key = (target, name, options = {}) => target.dispatchEvent(new view.window.KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true, ...options }));
+        assert.equal(controls.hidden, true);
+        assert.equal(button.hidden, false);
+        assert.equal(button.getAttribute('aria-expanded'), 'false');
+        button.click(); button.click();
+        assert.equal(viewer.querySelectorAll('.hex-controls').length, 1);
+        assert.equal(controls.hidden, false);
+        assert.equal(button.getAttribute('aria-expanded'), 'true');
+        assert.equal(view.window.document.activeElement, query);
+        query.value = '6E 65 65 64 6C 65'; key(query, 'Enter');
+        await new Promise(resolve => setTimeout(resolve, 10));
+        assert.equal(viewer.querySelector('.hex-status').textContent, '6 字节已选');
+        const selected = Array.from(viewer.querySelectorAll('.hex-byte.selected'), el => el.dataset.offset);
+        viewer.querySelector('.hex-search-close').click();
+        assert.equal(controls.hidden, true);
+        assert.equal(button.getAttribute('aria-expanded'), 'false');
+        assert.equal(view.window.document.activeElement, viewport);
+        assert.deepEqual(Array.from(viewer.querySelectorAll('.hex-byte.selected'), el => el.dataset.offset), selected);
+        key(viewport, 'c', { ctrlKey: true }); await Promise.all(view.pending);
+        assert.equal(host.copiedTexts.at(-1), '6E 65 65 64 6C 65', 'Keyboard copy must remain available while search is hidden');
+        for (const modifier of ['ctrlKey', 'metaKey']) {
+            assert.equal(key(viewport, 'f', { [modifier]: true }), false, 'Find shortcut must not open browser search');
+            assert.equal(controls.hidden, false);
+            assert.equal(button.getAttribute('aria-expanded'), 'true');
+            assert.equal(query.value, '6E 65 65 64 6C 65');
+            key(query, 'Escape');
+            assert.equal(controls.hidden, true);
+            assert.equal(button.getAttribute('aria-expanded'), 'false');
+        }
+        api.setMode('text');
+        assert.equal(viewer.querySelector('.hex-controls'), null);
+        button.click();
+        assert.ok(viewer.querySelector('.cm-search'), 'Switching mode must retain a working search button');
+        api.setMode('hex');
+        assert.equal(viewer.querySelector('.hex-controls').hidden, true, 'A new Hex view starts compact again');
+        assert.deepEqual(Array.from(api.body.bytes), original);
+    }
+    for (const source of sources) {
+        openBody(ui, source);
+        await checkSearch(ui, viewerFor(ui, source), ui.window.bodyViewers[source]);
+        ui.click('.subscript[data-open-source="' + source + '"]', true);
+        await Promise.all(ui.pending);
+        const tab = await openDOM(t, host.panels.at(-1));
+        await checkSearch(tab, tab.query('#body-editor'), tab.window.bodyViewer);
+        openRaw(ui, source);
+        await checkSearch(ui, rawViewerFor(ui, source), ui.window.rawViewers[source]);
+    }
+});
+
 test('both Raw tabs use the shared read-only text/Hex controls without formatting or redaction', async t => {
     const body = '{"exact":9007199254740993,"text":"中😀<script>window.injected=1</script>"}';
     const item = entry(body, body);
@@ -266,6 +376,7 @@ test('both Raw modes include the whole HTTP message, with exact Base64 body byte
             assert.equal(viewer.querySelector('[data-offset="0"]').textContent, expected[0].toString(16).padStart(2, '0').toUpperCase());
             assert.equal(viewer.querySelector('[data-offset="' + Buffer.byteLength(prefix) + '"]').textContent, bytes[0].toString(16).padStart(2, '0').toUpperCase());
             api.hex.select(0, expected.length - 1);
+            ui.click('[data-raw-source="' + source + '"] .body-search');
             ui.click('[data-raw-source="' + source + '"] .hex-controls button:nth-of-type(2)');
             await Promise.all(ui.pending);
             assert.equal(host.copiedTexts.at(-1), expected.toString('hex').match(/../g).join(' ').toUpperCase());
@@ -392,6 +503,7 @@ test('JSON, malformed JSON, text, XML, HTML, JS and CSS have unformatted Hex in 
             assert.deepEqual(Array.from(api.body.bytes), Array.from(expected));
             assert.equal(viewer.parentElement.querySelector('.body-note'), null);
             api.hex.select(0, expected.length - 1);
+            ui.click('[data-body-source="' + source + '"] .body-search');
             ui.click('[data-body-source="' + source + '"] .hex-controls button:nth-of-type(2)');
             await Promise.all(ui.pending);
             assert.equal(host.copiedTexts.at(-1), expected.toString('hex').match(/../g).join(' ').toUpperCase());
@@ -436,6 +548,7 @@ test('JSON Hex supports selection, search and clipboard for ' + (encoding || 'pl
         arrow('ArrowRight');
         assert.deepEqual(Array.from(viewer.querySelectorAll('.hex-byte.selected'), el => Number(el.dataset.offset)), [4, 5]);
         api.hex.select(0, 2);
+        ui.click('[data-body-source="' + source + '"] .body-search');
         ui.click('[data-body-source="' + source + '"] .hex-controls button:nth-of-type(2)');
         await Promise.all(ui.pending);
         assert.equal(host.copiedTexts.at(-1), '7B 22 69');

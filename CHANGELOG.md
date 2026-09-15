@@ -2,6 +2,17 @@
 
 All notable changes to Har Assist are documented here.
 
+## 0.1.26
+
+- Theme text/code search inputs, buttons, checkboxes and panels with VS Code colors,
+  removing CodeMirror's default light gradients and keeping controls readable in
+  dark, light and high-contrast themes. Use compact Chinese search labels.
+- Hide the Hex search toolbar by default; open it from the right-hand Find button
+  or Ctrl/Cmd+F and close it with the close button or Escape, reclaiming its space.
+- Retain Hex selection and keyboard copying while search is closed, and keep Find
+  working after mode switches. Apply the shared fix to request/response bodies,
+  Raw views and standalone tabs.
+
 ## 0.1.25
 
 - Remove the extra blank space below collapsed request and response headers by
