@@ -4,7 +4,7 @@ const { entry, createHost, openDOM } = require('./helpers/body-webview');
 const values = ui => Array.from(ui.query('.request-path-table').querySelectorAll('.data-row:not(.data-table-header)'), row => [row.querySelector('.data-key').textContent, row.querySelector('.data-value').textContent]);
 const withURL = url => { const item = entry(); item.request.url = url; return item; };
 
-test('request path tab sits between Raw and Headers and lists numbered path segments only', async t => {
+test('request tabs follow the requested order and Path lists numbered path segments only', async t => {
     const urls = [
         ['https://example.test/api/v1/users?id=123#detail', ['api', 'v1', 'users']],
         ['https://user:pass@example.test:8443/a%2Fb/%E4%B8%AD?q=/ignored#fragment', ['a%2Fb', '%E4%B8%AD']],
@@ -20,10 +20,16 @@ test('request path tab sits between Raw and Headers and lists numbered path segm
     const items = urls.map(([url]) => withURL(url)), captured = JSON.stringify(items);
     const ui = await openDOM(t, createHost().main, items);
     const tabs = Array.from(ui.window.document.querySelectorAll('.request-panel .tab'), el => el.textContent);
-    assert.deepEqual(tabs.slice(0, 4), ['总览', '原始', '请求路径', '请求头']);
-    assert.equal(ui.query('.response-panel .tab[name="请求路径"]'), null);
+    assert.deepEqual(tabs, ['总览', '原始', '路径', '参数', '请求头', '请求体', 'Cookies', '备注']);
+    assert.equal(ui.query('.response-panel .tab[name="路径"]'), null);
     ui.click('.request-items [index="0"]', true);
-    ui.click('.request-panel .tab[name="请求路径"]');
+    ui.click('.request-panel .tab[name="参数"]');
+    assert.ok(ui.query('.request-panel .page.show [data-table="obj.request.queryString"]'));
+    assert.ok(ui.query('.request-panel .page.show [data-table="obj.request.postData.params"]'));
+    ui.click('.request-panel .tab[name="请求头"]');
+    assert.ok(ui.query('.request-panel .page.show [data-table="obj.request.headers"]'));
+    assert.equal(ui.query('.request-panel .page.show [data-table="obj.request.queryString"]'), null);
+    ui.click('.request-panel .tab[name="路径"]');
     for (const [index, [, segments]] of urls.entries()) {
         ui.click('.request-items [index="' + index + '"]');
         assert.equal(ui.query('.request-path').classList.contains('show'), true);
@@ -41,7 +47,7 @@ test('request paths remain literal, complete and unredacted while switching tabs
     for (const source of ['request', 'response']) items[0][source].headers = [{ name: 'X-测试😀', value: segment }];
     const captured = JSON.stringify(items), ui = await openDOM(t, createHost().main, items);
     ui.click('.request-items [index="0"]', true);
-    ui.click('.request-panel .tab[name="请求路径"]');
+    ui.click('.request-panel .tab[name="路径"]');
     assert.deepEqual(values(ui), [['1', segment], ['2', 'last']]);
     assert.equal(ui.query('.request-path img'), null);
     assert.equal(ui.window.injected, undefined);
@@ -54,7 +60,7 @@ test('request paths remain literal, complete and unredacted while switching tabs
     }
     ui.click('.request-panel .tab[name="原始"]');
     assert.ok(ui.window.rawViewers.request);
-    ui.click('.request-panel .tab[name="请求路径"]');
+    ui.click('.request-panel .tab[name="路径"]');
     assert.equal(ui.window.rawViewers.request, null);
     assert.deepEqual(values(ui), [['1', segment], ['2', 'last']]);
     ui.click('.request-items [index="1"]');
@@ -68,7 +74,7 @@ test('request paths remain literal, complete and unredacted while switching tabs
 test('path index column resizes independently of headers and persists across selection', async t => {
     const ui = await openDOM(t, createHost().main, [withURL('https://example.test/a/b'), withURL('https://example.test/c')]);
     ui.click('.request-items [index="0"]', true);
-    ui.click('.request-panel .tab[name="请求路径"]');
+    ui.click('.request-panel .tab[name="路径"]');
     const inspector = ui.query('.request-inspector'), table = ui.query('.request-path-table');
     const resizer = table.querySelector('.data-table-column-resizer');
     table.getBoundingClientRect = () => ({ left: 0, width: 600 });

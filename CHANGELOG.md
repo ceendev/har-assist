@@ -2,6 +2,11 @@
 
 All notable changes to Har Assist are documented here.
 
+## 0.1.28
+
+- Rename the request Path tab to “路径” and move Parameters ahead of Request
+  Headers, keeping each tab's contents and behavior unchanged.
+
 ## 0.1.27
 
 - Add a Request Path tab between Raw and Request Headers, listing each URL path
