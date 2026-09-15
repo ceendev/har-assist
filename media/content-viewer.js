@@ -11,7 +11,7 @@ const { xml } = require('@codemirror/lang-xml');
 const { html } = require('@codemirror/lang-html');
 const { javascript } = require('@codemirror/lang-javascript');
 const { css } = require('@codemirror/lang-css');
-const { describe, prettyJSON, hexRow } = require('./body-data');
+const { describe, describeHTTP, prettyJSON, hexRow } = require('./body-data');
 const { mountHex } = require('./hex-view');
 
 let hostApi;
@@ -71,13 +71,10 @@ function safeHTML(text) {
 }
 
 function mount(container, text, mimeType, options = {}) {
-    const body = describe(text, mimeType, options.encoding || '');
-    // Raw HTTP text is reconstructed from HAR fields. Its Hex mode must use
-    // the independently captured body, never bytes made from the HTTP string.
-    const hexBody = options.hexSource
-        ? describe(options.hexSource.text, options.hexSource.mimeType, options.hexSource.encoding)
-        : body;
-    const hasHex = hexBody.capturedBytes;
+    const body = options.httpMessage
+        ? describeHTTP(text, options.httpMessage.prefix, options.httpMessage.payload)
+        : describe(text, mimeType, options.encoding || '');
+    const hasHex = body.bytes != null;
     const doc = container.ownerDocument;
     const node = (tag, className, text) => { const el = doc.createElement(tag); el.className = className; if (text != null) el.textContent = text; return el; };
     container.classList.add('body-viewer'); container.replaceChildren();
@@ -85,14 +82,14 @@ function mount(container, text, mimeType, options = {}) {
     const content = node('div', 'body-viewer-content'); container.append(tools, content);
     const modes = [];
     if (body.textual && body.language !== 'text') modes.push(['code', body.language.toUpperCase()]);
-    if (body.textual) modes.push(['text', options.hexSource ? 'HTTP 文本' : '文本']);
-    modes.push(['hex', options.hexSource ? '正文 Hex' : 'Hex']);
+    if (body.textual) modes.push(['text', '文本']);
+    modes.push(['hex', 'Hex']);
     if (body.preview) modes.push(['preview', '预览']);
     const buttons = new Map();
     let mode, editor = null, hex = null, cleanupPreview = () => {}, destroyed = false, formatted;
     const api = {
         body,
-        hexBody,
+        hexBody: body,
         get editor() { return editor; },
         get hex() { return hex; },
         getMode: () => mode,
@@ -164,7 +161,7 @@ function mount(container, text, mimeType, options = {}) {
         disposeContent(); mode = next; container.dataset.mode = mode;
         searchButton.hidden = mode === 'hex' || mode === 'preview';
         for (const [key, button] of buttons) { button.classList.toggle('selected', key === mode); button.setAttribute('aria-pressed', String(key === mode)); }
-        if (mode === 'hex') { hex = mountHex(content, hexBody, copyText); return; }
+        if (mode === 'hex') { hex = mountHex(content, body, copyText); return; }
         if (mode === 'preview') { preview(); return; }
         let value = body.text;
         const extensions = [EditorState.readOnly.of(true), EditorView.editable.of(false), lineNumbers(), highlightActiveLineGutter(),

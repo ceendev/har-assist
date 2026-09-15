@@ -1,4 +1,4 @@
-// Text and captured bytes are separate. Never invent bytes from HAR strings.
+// Body captures keep recorded text and explicitly captured bytes separate.
 function describe(text, mimeType, encoding = '') {
     const original = String(text == null ? '' : text);
     const mime = String(mimeType || '').toLowerCase().split(';', 1)[0].trim();
@@ -47,6 +47,21 @@ function describe(text, mimeType, encoding = '') {
     return { original, text: decoded, bytes, textual, json, language, mime, preview, capturedBytes };
 }
 
+// Raw has one scope in both modes: the full HTTP message. HAR stores headers
+// as fields, so serialize the displayed prefix separately, then append captured
+// body bytes directly. Never round-trip Base64 bytes through decoded text.
+function describeHTTP(text, prefix, payload) {
+    const body = describe(payload.text, payload.mimeType, payload.encoding);
+    const encoder = new TextEncoder();
+    const head = encoder.encode(prefix);
+    const tail = body.bytes || encoder.encode(body.original);
+    const bytes = new Uint8Array(head.length + tail.length);
+    bytes.set(head);
+    bytes.set(tail, head.length);
+    // The complete message is serialized from HAR, not a captured wire packet.
+    return { ...describe(text, 'text/plain'), bytes, capturedBytes: false };
+}
+
 // Preserve number spelling, large integers and duplicate keys when indenting JSON.
 function prettyJSON(text) {
     let result = '', depth = 0, quoted = false, escaped = false;
@@ -82,4 +97,4 @@ function hexRow(bytes, offset) {
     return offset.toString(16).padStart(8, '0').toUpperCase() + '  ' + hex + '  ' + ascii;
 }
 
-module.exports = { describe, prettyJSON, hexRow };
+module.exports = { describe, describeHTTP, prettyJSON, hexRow };

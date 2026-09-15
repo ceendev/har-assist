@@ -2,6 +2,15 @@
 
 All notable changes to Har Assist are documented here.
 
+## 0.1.21
+
+- Correct both Raw tabs to offer exactly **文本** and **Hex**, showing the complete
+  HTTP message in either mode: start line, all headers, separator and body.
+- Append Base64-decoded body bytes directly after the serialized headers in Raw
+  Hex, preserving binary values, character encodings and BOMs without re-encoding.
+- Enable complete-message Raw Hex for text-only and empty bodies as well. Keep
+  body-only viewers separate, with no extra encoding/provenance banners.
+
 ## 0.1.20
 
 - Fix Raw Hex to display the independently captured body bytes, labeled

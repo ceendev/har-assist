@@ -34,17 +34,19 @@ test('both Raw tabs use the shared read-only text/Hex controls without formattin
         assert.equal(api.editor.contentDOM.getAttribute('contenteditable'), 'false');
         assert.ok(viewer.querySelector('.cm-lineNumbers'));
         assert.deepEqual(Array.from(viewer.querySelectorAll('[data-body-mode]'), el => el.dataset.bodyMode), ['text', 'hex']);
+        assert.deepEqual(Array.from(viewer.querySelectorAll('[data-body-mode]'), el => el.textContent), ['文本', 'Hex']);
         assert.equal(viewer.parentElement.querySelector('.raw-code').textContent, '');
         assert.equal(viewer.parentElement.querySelector('.raw-code').hidden, true);
         ui.click('[data-raw-source="' + source + '"] .body-search');
         assert.ok(viewer.querySelector('.cm-search'));
         ui.click('[data-raw-source="' + source + '"] [data-body-mode="hex"]');
-        assert.equal(viewer.querySelector('[data-body-mode="hex"]').disabled, true);
-        assert.equal(api.body.bytes, null);
-        assert.equal(api.hexBody.bytes, null);
-        assert.equal(api.hex, null);
-        assert.equal(api.getMode(), 'text');
+        assert.equal(viewer.querySelector('[data-body-mode="hex"]').disabled, false);
+        assert.deepEqual(Array.from(api.body.bytes), Array.from(Buffer.from(raw)));
+        assert.equal(api.hexBody, api.body, 'Both modes must share the complete HTTP message');
+        assert.ok(api.hex);
+        assert.equal(api.getMode(), 'hex');
         assert.equal(viewer.parentElement.querySelector('.body-note'), null);
+        api.setMode('text');
         assert.equal(api.getText(), raw);
     }
     assert.equal(ui.window.injected, undefined);
@@ -68,7 +70,8 @@ test('Raw viewers preserve modes, track selection and release inactive or closed
     ui.click('.request-items [index="1"]');
     assert.equal(firstResponse.editor, null);
     assert.equal(ui.window.rawViewers.request.getMode(), 'hex');
-    assert.equal(ui.window.rawViewers.request.hexBody.text, 'next request');
+    assert.equal(ui.window.rawViewers.request.body.text, 'POST /api HTTP/1.1\n\nnext request');
+    assert.equal(Buffer.from(ui.window.rawViewers.request.body.bytes).toString(), 'POST /api HTTP/1.1\n\nnext request');
     assert.ok(ui.window.rawViewers.response.getText().endsWith('\n\nnext response'));
     ui.click('.inspector-close');
     assert.equal(ui.window.rawViewers.request, null);
@@ -116,7 +119,7 @@ test('large Raw messages use virtualized Hex and fitted layout, with intact fall
     }
 });
 
-test('Raw Hex copies exact captured body bytes without HTTP headers, charset re-encoding or provenance banners', async t => {
+test('both Raw modes include the whole HTTP message, with exact Base64 body bytes and no banners', async t => {
     const cases = [
         { bytes: Buffer.from([0, 255, 65]), mime: 'application/octet-stream' },
         { bytes: Buffer.from(Array.from({ length: 256 }, (_, i) => i)), mime: 'application/octet-stream' },
@@ -125,34 +128,57 @@ test('Raw Hex copies exact captured body bytes without HTTP headers, charset re-
     ];
     const items = cases.map(({ bytes, mime }) => {
         const item = encodedEntry(bytes, bytes, mime);
-        item.request.headers = [{ name: 'X-Captured-Header', value: 'do not serialize into Hex' }];
-        item.response.headers = [{ name: 'Content-Encoding', value: 'gzip' }];
+        const [mimeType, charset] = mime.split(';');
+        item.request.postData.mimeType = item.response.content.mimeType = mimeType;
+        item.request.headers = [{ name: 'X-Captured-Header', value: 'include in both modes' }, { name: 'X-Repeat', value: 'one' }, { name: 'X-Repeat', value: 'two' }];
+        item.response.headers = [{ name: 'Content-Encoding', value: 'gzip' }, { name: 'Set-Cookie', value: 'secret=keep-me' }];
+        // Charset may exist only in a header, not in the HAR content MIME.
+        if (charset) {
+            item.request.headers.push({ name: 'Content-Type', value: mime });
+            item.response.headers.push({ name: 'Content-Type', value: mime });
+        }
         return item;
     });
     const captured = JSON.stringify(items), host = createHost();
     const ui = await openDOM(t, host.main, items);
     ui.click('.request-items [index="0"]', true);
-    for (const [index, { bytes }] of cases.entries()) {
+    for (const [index, { bytes, mime }] of cases.entries()) {
         ui.click('.request-items [index="' + index + '"]');
         for (const source of sources) {
             openRaw(ui, source);
             const viewer = rawViewerFor(ui, source), api = ui.window.rawViewers[source];
             api.setMode('text');
             const httpText = api.getText();
-            assert.equal(api.body.bytes, null, 'Reconstructed HTTP text must never become a byte source');
-            assert.equal(viewer.querySelector('[data-body-mode="hex"]').textContent, '正文 Hex');
+            const head = source === 'request' ? 'POST /api HTTP/1.1' : 'HTTP/1.1 200 OK';
+            const headers = items[index][source].headers.map(({ name, value }) => name + ': ' + value);
+            const prefix = [head, ...headers].join('\n') + '\n\n';
+            const expected = Buffer.concat([Buffer.from(prefix), bytes]);
+            const bodyText = mime === 'application/octet-stream' ? bytes.toString('latin1')
+                : new TextDecoder(mime.includes('gb18030') ? 'gb18030' : 'utf-8', { ignoreBOM: true }).decode(bytes);
+            assert.equal(api.body.text, prefix + bodyText);
+            // CodeMirror represents CR/LF as line breaks; the underlying Raw
+            // text and Hex retain the recorded body before editor normalization.
+            assert.equal(httpText, (prefix + bodyText).replace(/\r\n?|\n/g, '\n'));
+            assert.equal(api.body.capturedBytes, false, 'Serialized headers must not be claimed as wire captures');
+            assert.deepEqual(Array.from(viewer.querySelectorAll('[data-body-mode]'), el => el.textContent), ['文本', 'Hex']);
             ui.click('[data-raw-source="' + source + '"] [data-body-mode="hex"]');
             assert.equal(api.getMode(), 'hex');
             assert.equal(api.editor, null);
-            assert.deepEqual(Array.from(api.hexBody.bytes), Array.from(bytes));
+            assert.deepEqual(Array.from(api.body.bytes), Array.from(expected));
             assert.deepEqual(Array.from(ui.window.bodyViewers[source].body.bytes), Array.from(bytes));
             assert.equal(viewer.parentElement.querySelector('.body-note'), null);
             assert.equal(viewer.querySelector('.body-viewer-content').firstElementChild.className, 'hex-controls');
-            assert.equal(viewer.querySelector('[data-offset="0"]').textContent, bytes[0].toString(16).padStart(2, '0').toUpperCase());
-            api.hex.select(0, bytes.length - 1);
+            assert.equal(viewer.querySelector('[data-offset="0"]').textContent, expected[0].toString(16).padStart(2, '0').toUpperCase());
+            assert.equal(viewer.querySelector('[data-offset="' + Buffer.byteLength(prefix) + '"]').textContent, bytes[0].toString(16).padStart(2, '0').toUpperCase());
+            api.hex.select(0, expected.length - 1);
             ui.click('[data-raw-source="' + source + '"] .hex-controls button:nth-of-type(2)');
             await Promise.all(ui.pending);
-            assert.equal(host.copiedTexts.at(-1), bytes.toString('hex').match(/../g).join(' ').toUpperCase());
+            assert.equal(host.copiedTexts.at(-1), expected.toString('hex').match(/../g).join(' ').toUpperCase());
+            // A selection across the separator must include headers and body.
+            api.hex.select(Buffer.byteLength(prefix) - 2, Buffer.byteLength(prefix) + bytes.length - 1);
+            ui.click('[data-raw-source="' + source + '"] .hex-controls button:nth-of-type(2)');
+            await Promise.all(ui.pending);
+            assert.equal(host.copiedTexts.at(-1), '0A 0A ' + bytes.toString('hex').match(/../g).join(' ').toUpperCase());
             ui.click('[data-raw-source="' + source + '"] [data-body-mode="text"]');
             assert.equal(api.getText(), httpText);
         }
@@ -160,7 +186,7 @@ test('Raw Hex copies exact captured body bytes without HTTP headers, charset re-
     assert.equal(JSON.stringify(ui.window.har.log.entries), captured);
 });
 
-test('text-only, invalid, unknown and missing captures disable Hex in Raw, bodies and standalone tabs', async t => {
+test('Raw always offers whole-message Hex; body-only tabs keep their independent capture behavior', async t => {
     const items = [entry('中😀', '中😀', 'text/plain'), entry('AP9B', 'AP9B', 'text/plain'), entry('invalid!', 'invalid!', 'application/octet-stream'), entry('AP9B', 'AP9B', 'application/octet-stream'), entry()];
     items[2].request.postData.encoding = items[2].response.content.encoding = 'base64';
     items[3].request.postData.encoding = items[3].response.content.encoding = 'unknown';
@@ -172,7 +198,15 @@ test('text-only, invalid, unknown and missing captures disable Hex in Raw, bodie
         ui.click('.request-items [index="' + index + '"]');
         for (const source of sources) {
             openRaw(ui, source);
-            for (const [viewer, api] of [[rawViewerFor(ui, source), ui.window.rawViewers[source]], [viewerFor(ui, source), ui.window.bodyViewers[source]]]) {
+            const rawViewer = rawViewerFor(ui, source), rawApi = ui.window.rawViewers[source];
+            assert.equal(rawViewer.querySelector('[data-body-mode="hex"]').disabled, false);
+            const rawText = rawApi.body.text;
+            assert.equal(rawText, (source === 'request' ? 'POST /api HTTP/1.1' : 'HTTP/1.1 200 OK') + '\n\n' + (index < 4 ? ui.window.getBodyPayload(source).text : ''));
+            rawApi.setMode('hex');
+            assert.equal(rawApi.getMode(), 'hex');
+            assert.deepEqual(Array.from(rawApi.body.bytes), Array.from(Buffer.from(rawText)));
+            assert.equal(rawViewer.parentElement.querySelector('.body-note'), null);
+            for (const [viewer, api] of [[viewerFor(ui, source), ui.window.bodyViewers[source]]]) {
                 if (!api) continue;
                 assert.equal(viewer.querySelector('[data-body-mode="hex"]').disabled, true);
                 const previousMode = api.getMode();

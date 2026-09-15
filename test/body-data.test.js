@@ -1,6 +1,30 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { describe, prettyJSON, hexRow } = require('../media/body-data');
+const { describe, describeHTTP, prettyJSON, hexRow } = require('../media/body-data');
+
+test('Raw byte composition contains the entire prefix and appends Base64 bytes without text re-encoding', () => {
+    const prefix = 'POST /api?a=1 HTTP/1.1\nX-Value: 中\nX-Value: secret\n\n';
+    for (const payload of [
+        { text: 'AP9B', encoding: 'base64' },
+        { text: '', encoding: 'base64' },
+        { text: '中😀\r\n', encoding: '' },
+        { text: 'invalid!', encoding: 'base64' },
+        { text: 'AP9B', encoding: 'unknown' },
+        { text: undefined, encoding: 'base64' }
+    ]) {
+        const original = { ...payload };
+        const tail = payload.encoding === 'base64' && ['', 'AP9B'].includes(payload.text)
+            ? Buffer.from(payload.text, 'base64') : Buffer.from(payload.text || '');
+        const text = prefix + tail.toString('latin1');
+        const data = describeHTTP(text, prefix, payload);
+        assert.equal(data.text, text);
+        assert.equal(data.language, 'text');
+        assert.equal(data.preview, '');
+        assert.equal(data.capturedBytes, false);
+        assert.deepEqual(Array.from(data.bytes), Array.from(Buffer.concat([Buffer.from(prefix), tail])));
+        assert.deepEqual(payload, original);
+    }
+});
 
 test('only explicit Base64 captures yield bytes; text and decode failures never synthesize bytes', () => {
     const data = describe('AP9B', 'application/octet-stream', 'base64');

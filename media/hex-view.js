@@ -1,7 +1,7 @@
 // Virtualized byte view: only visible rows are rendered; selection uses offsets.
 /* global ResizeObserver */
 function mountHex(parent, body, copyText) {
-    if (!body.capturedBytes || !body.bytes) throw new Error('Captured bytes are required for Hex');
+    if (!body.bytes) throw new Error('Bytes are required for Hex');
     const bytes = body.bytes, doc = parent.ownerDocument;
     const node = (tag, className, text) => {
         const el = doc.createElement(tag); el.className = className;

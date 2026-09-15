@@ -192,9 +192,9 @@ function decodeResponseBody(responseContent, mimeType) {
     var charset = /charset\s*=\s*["']?([^;\s"']+)/i.exec(mimeType);
     var bytes = Uint8Array.from(binary, function (character) { return character.charCodeAt(0); });
     try {
-        return new TextDecoder(charset ? charset[1] : "utf-8").decode(bytes);
+        return new TextDecoder(charset ? charset[1] : "utf-8", { ignoreBOM: true }).decode(bytes);
     } catch (error) {
-        return new TextDecoder("utf-8").decode(bytes);
+        return new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes);
     }
 }
 
@@ -294,7 +294,7 @@ function getRawRequestTarget(url) {
     }
 }
 
-function formatRawRequest(reqItem) {
+function formatRawRequest(reqItem, content) {
     var request = reqItem && reqItem.request || {};
     var method = request.method || "GET";
     var version = request.httpVersion || "HTTP/1.1";
@@ -303,8 +303,11 @@ function formatRawRequest(reqItem) {
     for (var i = 0; i < headers.length; i++) {
         lines.push(String(headers[i].name || "") + ": " + String(headers[i].value || ""));
     }
-    var body = request.postData && request.postData.text || "";
-    return lines.join("\n") + "\n\n" + body;
+    if (content == null) {
+        var payload = getBodyPayload("request", reqItem);
+        content = decodeResponseBody(payload, payload.mimeType);
+    }
+    return lines.join("\n") + "\n\n" + content;
 }
 
 function formatRawResponse(reqItem, content) {
@@ -317,6 +320,10 @@ function formatRawResponse(reqItem, content) {
     var headers = Array.isArray(response.headers) ? response.headers : [];
     for (var i = 0; i < headers.length; i++) {
         lines.push(String(headers[i].name || "") + ": " + String(headers[i].value || ""));
+    }
+    if (content == null) {
+        var payload = getBodyPayload("response", reqItem);
+        content = decodeResponseBody(payload, payload.mimeType);
     }
     return lines.join("\n") + "\n\n" + (content || "");
 }
@@ -367,7 +374,11 @@ function renderRawViews() {
         notice.hidden = fallback.hidden = true;
         fallback.textContent = "";
         try {
-            rawViewers[source] = window.HarBodyViewer.mount(this, raw, "text/plain", { mode: rawViewModes[source], hexSource: getBodyPayload(source) });
+            var prefix = source == "request" ? formatRawRequest(selectedReq.obj, "") : formatRawResponse(selectedReq.obj, "");
+            rawViewers[source] = window.HarBodyViewer.mount(this, raw, "text/plain", {
+                mode: rawViewModes[source],
+                httpMessage: { prefix: prefix, payload: getBodyPayload(source) }
+            });
             rawViewerEntries[source] = selectedReq;
         } catch (_) {
             this.replaceChildren();
@@ -1265,9 +1276,10 @@ function format(text, mimeType) {
 
 var bodyViewers = { request: null, response: null };
 
-function getBodyPayload(source) {
-    var request = selectedReq && selectedReq.obj.request || {};
-    var response = selectedReq && selectedReq.obj.response || {};
+function getBodyPayload(source, entry) {
+    entry = entry || selectedReq && selectedReq.obj || {};
+    var request = entry.request || {};
+    var response = entry.response || {};
     var record = source == "request" ? request.postData || {} : response.content || {};
     var header = getHeaderValue(source == "request" ? request.headers : response.headers, "content-type");
     var mime = record.mimeType || header || "";
@@ -1416,7 +1428,7 @@ function addRequestItem(reqItem) {
         "contentGroup": getContentGroup(mimeType),
         "statusGroup": getStatusGroup(reqItem.response.status),
         "rawRequest": formatRawRequest(reqItem),
-        "rawResponse": formatRawResponse(reqItem, responseBody),
+        "rawResponse": formatRawResponse(reqItem),
         "obj": reqItem
     };
     item.searchValues = createSearchValues(reqItem, item, responseBody);
