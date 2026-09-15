@@ -61,6 +61,18 @@ function getStatusGroup(status) {
     return Math.floor(statusCode / 100) + "xx";
 }
 
+function getRequestPathRows(url) {
+    // Extract the recorded path without URL normalization or percent-decoding:
+    // dot segments, encoded slashes and empty segments can be meaningful.
+    var path = String(url || "").replace(/^(?:[a-z][a-z0-9+.-]*:)?\/\/[^/?#]*/i, "").split(/[?#]/, 1)[0];
+    if (!path.startsWith("/") || path == "/") {
+        return [];
+    }
+    return path.slice(1).split("/").map(function (value, index) {
+        return { name: String(index + 1), value: value };
+    });
+}
+
 function getContentGroup(mimeType) {
     var normalizedMimeType = String(mimeType || "").toLowerCase().split(";", 1)[0].trim();
     if (normalizedMimeType.startsWith("image/")) {
@@ -881,7 +893,9 @@ function setupDataTableColumnResizers() {
 
         function applyKeyWidth(width) {
             var nextWidth = clampInspectorTableKeyWidth(width, table.getBoundingClientRect().width);
-            inspector.style.setProperty(table.hasAttribute("data-overview-table") ? "--overview-key-width" : "--inspector-key-width", nextWidth + "px");
+            var property = table.hasAttribute("data-overview-table") ? "--overview-key-width"
+                : table.classList.contains("request-path-table") ? "--request-path-index-width" : "--inspector-key-width";
+            inspector.style.setProperty(property, nextWidth + "px");
             resizer.setAttribute("aria-valuenow", Math.round(nextWidth));
         }
 
@@ -1085,13 +1099,23 @@ function selectReq(index) {
     $("*[data-table]").html("");
     $("*[data-table]").each(function () {
         var table = getNested($(this).attr("data-table"));
+        if ($(this).attr("data-key-label")) {
+            $(this).append($("<div>").addClass("data-row data-table-header").append(
+                $("<div>").addClass("data-key").text($(this).attr("data-key-label")),
+                $("<div>").addClass("data-value").text($(this).attr("data-value-label"))
+            ));
+        }
         for (var tableIndex in table) {
             var tableItem = table[tableIndex];
             if (!(tableItem === undefined) && !(tableItem.value === undefined)) {
-                $(this).append(`<div class="data-row"><div class="data-key">` + tableItem.name.toString().toHtmlEntities() + `</div><div class="data-value">` + tableItem.value.toString().toHtmlEntities() + `</div></div>`);
+                $(this).append($("<div>").addClass("data-row").append(
+                    $("<div>").addClass("data-key").text(String(tableItem.name)),
+                    $("<div>").addClass("data-value").text(String(tableItem.value))
+                ));
             }
         }
     });
+    $(".request-path-empty").toggle(selectedReq.requestPath.length == 0);
     if (window.HarOverview) {
         window.HarOverview.renderOverview(document.querySelector(".request-overview"), selectedReq.obj, har.log.creator);
     }
@@ -1395,6 +1419,7 @@ function addRequestItem(reqItem) {
         "method": reqItem.request.method,
         "time": reqItem.time,
         "fullURL": reqItem.request.url,
+        "requestPath": getRequestPathRows(reqItem.request.url),
         "domain": domain,
         "endpoint": endpoint,
         "application": application.key,

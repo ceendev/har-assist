@@ -2,6 +2,15 @@
 
 All notable changes to Har Assist are documented here.
 
+## 0.1.27
+
+- Add a Request Path tab between Raw and Request Headers, listing each URL path
+  segment in a numbered, two-column table with independently resizable columns.
+- Exclude the URL authority, query and fragment while preserving recorded path
+  spelling, percent-encoding, dot segments and empty segments; refresh on selection.
+- Render Inspector table cells as literal text, retaining Unicode characters such
+  as emoji without interpreting captured values as HTML or changing HAR data.
+
 ## 0.1.26
 
 - Theme text/code search inputs, buttons, checkboxes and panels with VS Code colors,

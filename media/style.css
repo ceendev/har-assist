@@ -1142,6 +1142,15 @@ body.resizing-columns * {
     display: none;
 }
 
+.request-path-table {
+    --inspector-key-width: var(--request-path-index-width, 80px);
+}
+
+.data-table-header {
+    background: var(--vscode-editorGroupHeader-tabsBackground);
+    font-weight: 600;
+}
+
 .inspector-empty {
     padding: 28px 12px;
     color: var(--vscode-descriptionForeground);
