@@ -50,7 +50,6 @@ function loadScript(consoleApi = console) {
 }
 
 const context = loadScript();
-assert.strictEqual(context.formatHex('中😀'), '0000  E4 B8 AD F0 9F 98 80');
 const responseText = 'connection established';
 
 assert.doesNotThrow(() => {

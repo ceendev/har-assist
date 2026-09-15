@@ -79,6 +79,7 @@ async function openDOM(t, panel, entries = []) {
 	});
 	t.after(() => {
 		if (dom.window.bodyViewers) dom.window.destroyBodyEditors();
+		if (dom.window.rawViewers) dom.window.destroyRawEditors();
 		dom.window.dispatchEvent(new dom.window.Event('pagehide'));
 		dom.window.close();
 		if (errors.length) throw new Error(errors.join('\n'));

@@ -26,6 +26,8 @@ files that exceed VS Code's normal text-document size limit.
 - Collapse either the request or response inspector while keeping one visible.
 - View JSON, XML, HTML, JavaScript, CSS and plain text in read-only CodeMirror
   controls; JSON is automatically indented without changing number tokens or keys.
+- Inspect complete reconstructed HTTP messages in both Raw tabs using the same
+  read-only text/Hex controls, without formatting the message body.
 - Switch bodies to Hex with byte offsets, ASCII, byte search and selection/copy.
   Base64 bodies use decoded bytes; text-only captures are explicitly labeled UTF-8
   reconstructions, not original network bytes.

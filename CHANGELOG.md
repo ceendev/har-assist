@@ -2,6 +2,15 @@
 
 All notable changes to Har Assist are documented here.
 
+## 0.1.17
+
+- Use the shared read-only CodeMirror/Text and virtualized Hex viewer in both Raw
+  tabs, with line numbers, search, byte selection/copy and resizable panel layout.
+- Preserve complete reconstructed HTTP messages without body formatting or
+  redaction, and explicitly distinguish them from captured transport bytes.
+- Remember each Raw tab's display mode, update on request selection, and release
+  inactive viewers; use the response's recorded HTTP version in its status line.
+
 ## 0.1.16
 
 - Replace JSONEditor with a bundled, read-only CodeMirror 6 content viewer for

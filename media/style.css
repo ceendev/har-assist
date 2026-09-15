@@ -192,7 +192,8 @@ body {
     background: var(--vscode-button-background);
 }
 
-.har-body-viewer {
+.har-body-viewer,
+.har-raw-viewer {
     flex: 1 1 0;
     height: auto;
     min-height: 0;
@@ -994,28 +995,6 @@ body.resizing-columns * {
     overflow: auto;
     white-space: pre;
     text-overflow: clip;
-}
-
-.raw-view-tabs {
-    display: flex;
-    gap: 2px;
-    margin-bottom: 6px;
-}
-
-.raw-view-tab {
-    padding: 4px 9px;
-    border: 0;
-    color: var(--vscode-descriptionForeground);
-    background: transparent;
-    font: inherit;
-    font-size: 11px;
-    cursor: pointer;
-}
-
-.raw-view-tab:hover,
-.raw-view-tab.selected {
-    color: var(--vscode-editor-foreground);
-    background: var(--vscode-list-hoverBackground);
 }
 
 .templates {

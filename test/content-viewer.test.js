@@ -3,6 +3,114 @@ const { test } = require('node:test');
 const { entry, createHost, openDOM } = require('./helpers/body-webview');
 const sources = ['request', 'response'];
 const viewerFor = (ui, source) => ui.query('[data-body-source="' + source + '"]');
+const rawViewerFor = (ui, source) => ui.query('[data-raw-source="' + source + '"]');
+const openRaw = (ui, source) => ui.click('.' + source + '-panel .tab[name="原始"]');
+
+test('both Raw tabs use the shared read-only text/Hex controls without formatting or redaction', async t => {
+    const body = '{"exact":9007199254740993,"text":"中😀<script>window.injected=1</script>"}';
+    const item = entry(body, body);
+    item.request.headers = [{ name: 'Authorization', value: 'Bearer captured-secret' }, { name: 'X-Repeat', value: 'first' }, { name: 'X-Repeat', value: 'second' }];
+    item.response.headers = [{ name: 'Set-Cookie', value: 'session=captured-cookie' }];
+    item.response.httpVersion = 'HTTP/2';
+    const captured = JSON.stringify(item);
+    const host = createHost(), ui = await openDOM(t, host.main, [item]);
+    assert.equal(ui.window.rawViewers.response, null);
+    ui.click('.request-items [index="0"]', true);
+    assert.equal(ui.window.rawViewers.request, null, 'Inactive Raw tab must remain lazy');
+    for (const source of sources) {
+        openRaw(ui, source);
+        const viewer = rawViewerFor(ui, source), api = ui.window.rawViewers[source];
+        const raw = source === 'request' ? ui.window.selectedReq.rawRequest : ui.window.selectedReq.rawResponse;
+        assert.equal(api.getMode(), 'text');
+        assert.equal(api.getText(), raw);
+        assert.ok(raw.endsWith('\n\n' + body), 'The HTTP body must not be indented or converted to a preview');
+        assert.match(raw, source === 'request' ? /Authorization: Bearer captured-secret\nX-Repeat: first\nX-Repeat: second/ : /^HTTP\/2 200 OK\nSet-Cookie: session=captured-cookie/);
+        assert.equal(api.editor.state.readOnly, true);
+        assert.equal(api.editor.contentDOM.getAttribute('contenteditable'), 'false');
+        assert.ok(viewer.querySelector('.cm-lineNumbers'));
+        assert.deepEqual(Array.from(viewer.querySelectorAll('[data-body-mode]'), el => el.dataset.bodyMode), ['text', 'hex']);
+        assert.equal(viewer.parentElement.querySelector('.raw-code').textContent, '');
+        assert.equal(viewer.parentElement.querySelector('.raw-code').hidden, true);
+        ui.click('[data-raw-source="' + source + '"] .body-search');
+        assert.ok(viewer.querySelector('.cm-search'));
+        ui.click('[data-raw-source="' + source + '"] [data-body-mode="hex"]');
+        assert.deepEqual(Array.from(api.body.bytes), Array.from(Buffer.from(raw)));
+        assert.match(viewer.querySelector('.body-note').textContent, /UTF-8.*不代表原始/);
+        api.hex.select(0, 3);
+        ui.click('[data-raw-source="' + source + '"] .hex-controls button:nth-of-type(2)');
+        await Promise.all(ui.pending);
+        assert.equal(host.copiedTexts.at(-1), Buffer.from(raw).subarray(0, 4).toString('hex').match(/../g).join(' ').toUpperCase());
+        ui.click('[data-raw-source="' + source + '"] [data-body-mode="text"]');
+        assert.equal(api.getText(), raw);
+    }
+    assert.equal(ui.window.injected, undefined);
+    assert.equal(JSON.stringify(ui.window.selectedReq.obj), captured);
+});
+
+test('Raw viewers preserve modes, track selection and release inactive or closed instances', async t => {
+    const ui = await openDOM(t, createHost().main, [entry(), entry('next request', 'next response', 'text/plain')]);
+    ui.click('.request-items [index="0"]', true);
+    openRaw(ui, 'request');
+    const firstRequest = ui.window.rawViewers.request, firstResponse = ui.window.rawViewers.response;
+    firstRequest.setMode('hex');
+    ui.click('[data-raw-source="response"] .body-search');
+    ui.click('.request-panel .tab[name="请求头"]');
+    assert.equal(ui.window.rawViewers.request, null);
+    assert.equal(firstRequest.hex, null);
+    assert.equal(ui.window.rawViewers.response, firstResponse);
+    assert.ok(rawViewerFor(ui, 'response').querySelector('.cm-search'), 'Other panel must keep its current viewer and search');
+    openRaw(ui, 'request');
+    assert.equal(ui.window.rawViewers.request.getMode(), 'hex');
+    ui.click('.request-items [index="1"]');
+    assert.equal(firstResponse.editor, null);
+    assert.equal(ui.window.rawViewers.request.getMode(), 'hex');
+    assert.ok(ui.window.rawViewers.request.body.original.endsWith('\n\nnext request'));
+    assert.ok(ui.window.rawViewers.response.getText().endsWith('\n\nnext response'));
+    ui.click('.inspector-close');
+    assert.equal(ui.window.rawViewers.request, null);
+    assert.equal(ui.window.rawViewers.response, null);
+    assert.equal(ui.window.document.querySelectorAll('.cm-editor, .hex-row').length, 0);
+    ui.click('.request-items [index="0"]', true);
+    ui.window.loadHAR(JSON.stringify({ log: { entries: [entry()] } }));
+    assert.equal(ui.window.document.querySelectorAll('.cm-editor, .hex-row').length, 0);
+    assert.equal(ui.window.document.querySelectorAll('.request-panel .page.show').length, 1);
+    assert.equal(ui.window.document.querySelectorAll('.response-panel .page.show').length, 1);
+});
+
+test('large Raw messages use virtualized Hex and fitted layout, with intact fallback text on load failure', async t => {
+    const raw = 'x'.repeat(1024 * 1024) + '\n中😀';
+    const ui = await openDOM(t, createHost().main, [entry(raw, raw, 'text/plain')]);
+    ui.click('.request-items [index="0"]', true);
+    for (const source of sources) {
+        openRaw(ui, source);
+        const viewer = rawViewerFor(ui, source), api = ui.window.rawViewers[source];
+        assert.ok(api.getText().endsWith(raw));
+        assert.equal(ui.window.getComputedStyle(viewer).flexGrow, '1');
+        assert.equal(ui.window.getComputedStyle(viewer.closest('.page')).overflow, 'hidden');
+        assert.equal(ui.window.getComputedStyle(viewer.parentElement).display, 'flex');
+        api.setMode('hex');
+        assert.ok(viewer.querySelectorAll('.hex-row').length < 50);
+        assert.deepEqual(Array.from(api.body.bytes.subarray(-7)), [0xe4, 0xb8, 0xad, 0xf0, 0x9f, 0x98, 0x80]);
+        ui.click('.' + source + '-panel .tab[name="' + (source === 'request' ? '请求头' : '响应头') + '"]');
+    }
+    const mount = ui.window.HarBodyViewer.mount;
+    ui.window.HarBodyViewer.mount = () => { throw new Error('Simulated failure'); };
+    for (const source of sources) {
+        openRaw(ui, source);
+        const viewer = rawViewerFor(ui, source), section = viewer.parentElement;
+        assert.equal(viewer.hidden, true);
+        assert.equal(section.querySelector('.body-viewer-error').hidden, false);
+        assert.equal(section.querySelector('.raw-code').hidden, false);
+        assert.ok(section.querySelector('.raw-code').textContent.endsWith(raw));
+    }
+    ui.window.HarBodyViewer.mount = mount;
+    ui.window.renderRawViews();
+    for (const source of sources) {
+        const viewer = rawViewerFor(ui, source);
+        assert.equal(viewer.hidden, false);
+        assert.equal(viewer.parentElement.querySelector('.raw-code').textContent, '');
+    }
+});
 
 test('CodeMirror opens formatted JSON read-only, folds code and follows inspector selection', async t => {
     const ui = await openDOM(t, createHost().main, [entry(), entry('{"other":3}', '{"other":4}')]);

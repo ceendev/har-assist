@@ -301,7 +301,7 @@ function formatRawRequest(reqItem) {
 function formatRawResponse(reqItem, content) {
     var response = reqItem && reqItem.response || {};
     var request = reqItem && reqItem.request || {};
-    var version = request.httpVersion || "HTTP/1.1";
+    var version = response.httpVersion || request.httpVersion || "HTTP/1.1";
     var status = response.status == null ? "" : response.status;
     var statusText = response.statusText || "";
     var lines = [version + " " + status + " " + statusText].filter(function (line) { return line.trim().length > 0; });
@@ -312,41 +312,60 @@ function formatRawResponse(reqItem, content) {
     return lines.join("\n") + "\n\n" + (content || "");
 }
 
-function formatHex(text) {
-    var bytes = new TextEncoder().encode(String(text || ""));
-    var lines = [];
-    for (var offset = 0; offset < bytes.length; offset += 16) {
-        var lineBytes = Array.from(bytes.subarray(offset, offset + 16));
-        lines.push(offset.toString(16).toUpperCase().padStart(4, "0") + "  " + lineBytes.map(function (byte) {
-            return byte.toString(16).toUpperCase().padStart(2, "0");
-        }).join(" "));
+var rawViewers = { request: null, response: null };
+var rawViewerEntries = { request: null, response: null };
+var rawViewModes = { request: "text", response: "text" };
+
+function destroyRawEditor(source) {
+    if (rawViewers[source]) {
+        rawViewModes[source] = rawViewers[source].getMode();
+        rawViewers[source].destroy();
     }
-    return lines.join("\n");
+    rawViewers[source] = null;
+    rawViewerEntries[source] = null;
+}
+
+function destroyRawEditors() {
+    Object.keys(rawViewers).forEach(destroyRawEditor);
+    $(".har-raw-viewer").each(function () {
+        this.hidden = true;
+        var section = this.parentElement;
+        section.querySelector(".body-viewer-error").hidden = true;
+        var fallback = section.querySelector(".raw-code");
+        fallback.hidden = true;
+        fallback.textContent = "";
+    });
 }
 
 function renderRawViews() {
-    $(".raw-view-tab").off().on("click", function () {
-        var panel = $(this).closest(".inspector-panel");
-        panel.find(".raw-view-tab").removeClass("selected");
-        $(this).addClass("selected");
-        panel.find(".raw-code").attr("data-raw-mode", $(this).attr("data-raw-mode"));
-        renderRawViews();
-    });
-    if (!selectedReq) {
-        return;
-    }
-    $(".raw-code").each(function () {
-        // Do not lay out megabytes of invisible raw text behind the active body
-        // viewer. Render it on demand when the user selects the Raw tab.
-        if (!$(this).closest(".page").hasClass("show")) {
-            this.textContent = "";
+    $(".har-raw-viewer").each(function () {
+        var source = this.getAttribute("data-raw-source");
+        var fallback = this.parentElement.querySelector(".raw-code");
+        var notice = this.parentElement.querySelector(".body-viewer-error");
+        // Only keep an instance for an active Raw tab. Preserve its mode, and
+        // keep its scroll/search state when only the other panel changes tabs.
+        if (!selectedReq || !this.closest(".page").classList.contains("show")) {
+            destroyRawEditor(source);
+            this.hidden = true;
+            notice.hidden = fallback.hidden = true;
+            fallback.textContent = "";
             return;
         }
-        var source = $(this).attr("data-raw-source");
+        if (rawViewers[source] && rawViewerEntries[source] === selectedReq) return;
+        destroyRawEditor(source);
         var raw = source == "request" ? selectedReq.rawRequest : selectedReq.rawResponse;
-        var mode = $(this).attr("data-raw-mode") || "text";
-        $(this).attr("title", mode == "hex" ? "根据 HAR 中重建的 HTTP 文本按 UTF-8 编码；不是原始传输字节。响应体原始字节请使用响应体中的 Hex。" : "");
-        $(this).text(mode == "hex" ? formatHex(raw) : raw);
+        this.hidden = false;
+        notice.hidden = fallback.hidden = true;
+        fallback.textContent = "";
+        try {
+            rawViewers[source] = window.HarBodyViewer.mount(this, raw, "text/plain", { mode: rawViewModes[source] });
+            rawViewerEntries[source] = selectedReq;
+        } catch (_) {
+            this.replaceChildren();
+            this.hidden = true;
+            notice.hidden = fallback.hidden = false;
+            fallback.textContent = raw;
+        }
     });
 }
 
@@ -430,6 +449,7 @@ function handleRequestNavigation(event) {
 
 function closeInspector() {
     destroyBodyEditors();
+    destroyRawEditors();
     selectedReq = null;
     selectedIndex = -1;
     inspectorPanelState = { requestExpanded: true, responseExpanded: true };
@@ -889,7 +909,7 @@ function setupGUI() {
             tabGroup.append("<div class='tab' name='" + $(this).attr("name") + "'>" + $(this).attr("name") + "</div>");
         });
         tabGroup.find(".tab").first().addClass("selected");
-        panel.find(".page").first().addClass("show");
+        panel.find(".page").removeClass("show").first().addClass("show");
     });
 
     $(".tab").off().on("click", function () {
