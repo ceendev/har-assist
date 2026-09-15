@@ -16,13 +16,13 @@ function describe(text, mimeType, encoding = '') {
             const binary = atob(original);
             bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
             capturedBytes = true;
-            byteOrigin = 'HAR Base64 解码字节（不含未捕获的传输层数据）';
+            byteOrigin = '';
             if (textual) {
                 const charset = /charset\s*=\s*["']?([^;\s"']+)/i.exec(mimeType || '');
                 try { decoded = new TextDecoder(charset ? charset[1] : 'utf-8', { ignoreBOM: true }).decode(bytes); }
                 catch (_) {
                     decoded = new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
-                    byteOrigin += '；字符集不支持，文本按 UTF-8 显示';
+                    byteOrigin = '字符集不支持，文本按 UTF-8 显示';
                 }
             }
         } catch (_) {

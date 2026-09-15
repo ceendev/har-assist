@@ -7,7 +7,7 @@ function mountHex(parent, body, copyText) {
         if (text != null) el.textContent = text;
         return el;
     };
-    const hint = node('div', 'body-note', body.byteOrigin);
+    if (body.byteOrigin) parent.append(node('div', 'body-note', body.byteOrigin));
     const controls = node('div', 'hex-controls');
     const query = node('input', 'hex-query');
     query.placeholder = '查找字节，如 FF 00 4A'; query.setAttribute('aria-label', '查找十六进制字节');
@@ -19,7 +19,7 @@ function mountHex(parent, body, copyText) {
     const viewport = node('div', 'hex-scroll'); viewport.tabIndex = 0;
     viewport.setAttribute('aria-label', '十六进制数据；点击字节选择，Shift 点击选择范围');
     const spacer = node('div', 'hex-spacer'), rows = node('div', 'hex-rows');
-    spacer.append(rows); viewport.append(spacer); parent.append(hint, controls, header, viewport);
+    spacer.append(rows); viewport.append(spacer); parent.append(controls, header, viewport);
     const totalRows = Math.max(1, Math.ceil(bytes.length / 16)), rowHeight = 22;
     const height = Math.min(totalRows * rowHeight, 8000000);
     spacer.style.height = height + 'px';

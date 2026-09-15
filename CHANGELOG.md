@@ -2,6 +2,11 @@
 
 All notable changes to Har Assist are documented here.
 
+## 0.1.18
+
+- Remove the Base64 byte-source hint and its row from Hex views in the inspector
+  and standalone tabs, without changing decoded bytes, search or copy behavior.
+
 ## 0.1.17
 
 - Use the shared read-only CodeMirror/Text and virtualized Hex viewer in both Raw

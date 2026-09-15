@@ -170,7 +170,8 @@ test('Hex uses original bytes rather than formatted JSON, supports byte selectio
         assert.equal(api.editor, null);
         assert.deepEqual(Array.from(api.body.bytes), Array.from(Buffer.from(raw)));
         const viewer = viewerFor(ui, source);
-        assert.match(viewer.querySelector('.body-note').textContent, /Base64/);
+        assert.equal(viewer.querySelector('.body-note'), null);
+        assert.equal(viewer.querySelector('.body-viewer-content').firstElementChild.className, 'hex-controls', 'No blank hint row should remain');
         // Repeated Shift+Left must extend from the moving cursor, not the
         // maximum selected offset; then Shift+Right shrinks the same range.
         const cell = viewer.querySelector('[data-offset="5"]');
@@ -207,6 +208,7 @@ test('new body tabs preserve original payload, encoding, mode and read-only cont
         await Promise.all(ui.pending);
         const tab = await openDOM(t, host.panels.at(-1)), api = tab.window.bodyViewer;
         assert.equal(api.getMode(), 'hex');
+        if (source === 'response') assert.equal(tab.query('.body-note'), null, 'Standalone Base64 Hex must also omit the hint');
         assert.deepEqual(Array.from(api.body.bytes), Array.from(Buffer.from(raw)));
         api.setMode('code'); assert.equal(api.editor.state.readOnly, true);
         api.foldAll(); assert.ok(tab.query('.cm-foldPlaceholder'));

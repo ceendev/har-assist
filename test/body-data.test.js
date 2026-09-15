@@ -7,12 +7,13 @@ test('base64 bytes, charset decoding, and Unicode text byte provenance are expli
     assert.deepEqual(Array.from(data.bytes), [0, 255, 65]);
     assert.equal(data.textual, false);
     assert.equal(data.capturedBytes, true);
-    assert.match(data.byteOrigin, /Base64/);
+    assert.equal(data.byteOrigin, '');
     const unicode = describe('中😀\r\n', 'text/plain');
     assert.equal(unicode.text, '中😀\r\n');
     assert.deepEqual(Array.from(unicode.bytes), Array.from(Buffer.from('中😀\r\n')));
     assert.match(unicode.byteOrigin, /不代表原始/);
     assert.equal(describe('6Q==', 'text/plain; charset=windows-1252', 'base64').text, 'é');
+    assert.match(describe('QQ==', 'text/plain; charset=unsupported-charset', 'base64').byteOrigin, /字符集不支持/);
     const invalid = describe('not base64!', 'application/octet-stream', 'base64');
     assert.equal(invalid.text, 'not base64!');
     assert.equal(invalid.textual, true);
