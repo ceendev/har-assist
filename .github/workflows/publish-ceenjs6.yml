@@ -1,0 +1,67 @@
+name: Publish CeenJs6
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Full commit SHA from suminwell/CeenJs6-VSCode-Extension
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate source commit
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: node -e 'if (!/^[a-f0-9]{40}$/.test(process.env.SOURCE_SHA)) throw new Error("A full source commit SHA is required")'
+      - uses: actions/checkout@v4
+        with:
+          repository: suminwell/CeenJs6-VSCode-Extension
+          ref: ${{ inputs.source_sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Validate Marketplace identity
+        run: node -e 'const p = require("./package.json"); if (`${p.publisher}.${p.name}` !== "yeceen.ceenjs6") throw new Error("Unexpected extension identity")'
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: npm run package -- --out ceenjs6.vsix
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ceenjs6-vsix
+          path: ceenjs6.vsix
+          if-no-files-found: error
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: marketplace
+    concurrency:
+      group: marketplace-publish
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: suminwell/CeenJs6-VSCode-Extension
+          ref: ${{ inputs.source_sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - uses: actions/download-artifact@v4
+        with:
+          name: ceenjs6-vsix
+      - name: Sign in using the existing yeceen publishing identity
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+      - name: Publish CeenJs6 to Marketplace
+        run: npx --no-install vsce publish --packagePath ceenjs6.vsix --azure-credential
